@@ -5,7 +5,7 @@ function collect(folder) {
   return readdirSync(folder, { withFileTypes: true }).flatMap((entry) =>
     entry.isDirectory()
       ? collect(join(folder, entry.name))
-      : entry.name.endsWith('.test.ts')
+      : entry.name.endsWith('.test.js')
         ? [join(folder, entry.name)]
         : [],
   );
