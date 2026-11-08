@@ -121,9 +121,8 @@ export default function AdminApp() {
  * RoleWorkspaceScreen are accepted but not needed yet.                *
  * ------------------------------------------------------------------ */
 export function AdminHomeScreen() {
-  return <AdminApp />;
+  return <AdminNavigator />;
 }
-
 export const adminModule = { HomeScreen: AdminHomeScreen };
 
 const styles = StyleSheet.create({
