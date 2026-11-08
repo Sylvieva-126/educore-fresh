@@ -68,7 +68,7 @@ export class NoticesPresenter {
     return this.load();
   }
 
-  //  Composer (create a notice) 
+  //  Composer (create a notice)
   onComposerChange(field, value) {
     this._setComposer({ [field]: value });
   }
@@ -103,8 +103,7 @@ export class NoticesPresenter {
     } catch (error) {
       this._setComposer({
         state: 'failed',
-        errorText:
-          error instanceof ApiError ? error.message : 'The notice was not accepted.',
+        errorText: error instanceof ApiError ? error.message : 'The notice was not accepted.',
       });
     }
   }
@@ -120,7 +119,7 @@ export class NoticesPresenter {
     });
   }
 
-  //  Row actions 
+  //  Row actions
   async publishNotice(notice) {
     await this._rowAction(() => this.model.publish(notice.id));
   }

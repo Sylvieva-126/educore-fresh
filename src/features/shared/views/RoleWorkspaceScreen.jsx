@@ -17,7 +17,7 @@ export function RoleWorkspaceScreen({ navigation }) {
   const HomeScreen = feature.HomeScreen;
   if (HomeScreen)
     return (
- <HomeScreen
+      <HomeScreen
         context={context}
         openShared={(screen) => navigation.navigate(screen)}
         target={session.requestedTarget ?? undefined}

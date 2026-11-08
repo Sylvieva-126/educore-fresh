@@ -2,7 +2,7 @@
  * AD04 — Student profile (View). Renders the profile sections and forwards
  * the two guarded actions (class move, withdrawal) to the Presenter.
  */
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Text, StyleSheet, ScrollView } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import StatusBadge from '../components/StatusBadge';
@@ -14,7 +14,7 @@ import { StudentModel } from '../../models';
 import { colors, typography, spacing, statusTone } from '../theme';
 
 export default function StudentProfileView({ route, navigation }) {
-  const presenter = useRef(new StudentProfilePresenter(StudentModel)).current;
+  const [presenter] = useState(() => new StudentProfilePresenter(StudentModel));
   const [state, setState] = useState(presenter.initialState);
 
   useEffect(() => {

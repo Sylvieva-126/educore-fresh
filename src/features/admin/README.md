@@ -1,7 +1,5 @@
 # EduCore — Admin module (React Native + JavaScript, MVP)
 
-
-
 ## The MVP rule (the lecturer's flow)
 
 **Model–View–Presenter.** Data moves in one direction:
@@ -39,13 +37,13 @@ Read those three files in that order and you know the whole pattern.
 
 ## What is built vs. what is next
 
-| Built (working end-to-end pattern) | Screen |
-|---|---|
-| `DashboardModel/Presenter` + `AdminHomeView` | AD01 Admin home |
-| `StudentModel` + `StudentListPresenter` + `StudentListView` | AD02 Student list |
-| `StudentModel` + `StudentProfilePresenter` + `StudentProfileView` | AD04 Student profile |
-| `FinanceModel` + `InvoiceListPresenter` + `InvoiceListView` | AD22 Invoices |
-| `NoticesModel` + `NoticesPresenter` + `NoticesView` | AD28 Announcements (safe submission) |
+| Built (working end-to-end pattern)                                | Screen                               |
+| ----------------------------------------------------------------- | ------------------------------------ |
+| `DashboardModel/Presenter` + `AdminHomeView`                      | AD01 Admin home                      |
+| `StudentModel` + `StudentListPresenter` + `StudentListView`       | AD02 Student list                    |
+| `StudentModel` + `StudentProfilePresenter` + `StudentProfileView` | AD04 Student profile                 |
+| `FinanceModel` + `InvoiceListPresenter` + `InvoiceListView`       | AD22 Invoices                        |
+| `NoticesModel` + `NoticesPresenter` + `NoticesView`               | AD28 Announcements (safe submission) |
 
 All other AD screens (`AD03, AD05–AD21, AD23–AD27, AD29–AD34`) are registered in
 `views/screens/index.js` and currently show a `PlaceholderScreen` with the recipe.

@@ -3,7 +3,7 @@
  * InvoiceListPresenter. Invoice amounts come from the backend — never
  * calculated on the phone.
  */
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { TextInput, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
@@ -19,7 +19,7 @@ const STATUSES = ['Paid', 'PartiallyPaid', 'Overdue', 'Draft']
   .concat([{ label: 'All statuses', value: 'all' }]);
 
 export default function InvoiceListView({ navigation }) {
-  const presenter = useRef(new InvoiceListPresenter(FinanceModel)).current;
+  const [presenter] = useState(() => new InvoiceListPresenter(FinanceModel));
   const [state, setState] = useState(presenter.initialState);
   const [sheetVisible, setSheetVisible] = useState(false);
 

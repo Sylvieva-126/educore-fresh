@@ -4,10 +4,11 @@
  * CONTRACT (this is the ONLY thing navigation knows about features):
  *   features/<role>/index.js  →  export const <role>Module = { HomeScreen }
  *
- * A module without a HomeScreen (an empty stub) is fine: RoleWorkspaceScreen
- * shows its built-in "Your role pages go here" fallback for that role.
- * An unknown role returns null — same fallback; never a crash and never
- * silent access to the admin workspace.
+ * The admin family is PRINCIPAL / SCHOOL_OFFICE / ACCOUNTS (see SessionStore
+ * screen permissions) — the original scaffold sent every role that is not
+ * TEACHER/STUDENT/PARENT to adminModule, and the demo account signs in as
+ * PRINCIPAL. Unknown roles return null: RoleWorkspaceScreen shows its
+ * built-in fallback. Never a crash and never silent access for a stranger role.
  */
 import { adminModule } from '../features/admin';
 import { teacherModule } from '../features/teacher';
@@ -15,16 +16,16 @@ import { studentModule } from '../features/student';
 import { parentModule } from '../features/parent';
 
 const MODULES_BY_ROLE = {
-  ADMIN: adminModule,
-  PRINCIPAL: adminModule, // ← THE FIX: the demo context signs in as PRINCIPAL
-  SCHOOL_OFFICE: adminModule,
-  ACCOUNTS: adminModule,
   TEACHER: teacherModule,
   STUDENT: studentModule,
   PARENT: parentModule,
 };
 
+const ADMIN_FAMILY = new Set(['ADMIN', 'PRINCIPAL', 'SCHOOL_OFFICE', 'ACCOUNTS']);
+
 export function roleModule(role) {
   if (!role) return null;
-  return MODULES_BY_ROLE[String(role).trim().toUpperCase()] ?? null;
+  const key = String(role).trim().toUpperCase();
+  if (ADMIN_FAMILY.has(key)) return adminModule;
+  return MODULES_BY_ROLE[key] ?? null;
 }

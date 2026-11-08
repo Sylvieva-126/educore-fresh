@@ -4,7 +4,7 @@
  * disabled submit while saving, accepted confirmation after the backend
  * response — all driven by NoticesPresenter state.
  */
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
@@ -23,7 +23,7 @@ const AUDIENCES = [
 ];
 
 export default function NoticesView({ navigation }) {
-  const presenter = useRef(new NoticesPresenter(NoticesModel)).current;
+  const [presenter] = useState(() => new NoticesPresenter(NoticesModel));
   const [state, setState] = useState(presenter.initialState);
   const [audienceSheetVisible, setAudienceSheetVisible] = useState(false);
 

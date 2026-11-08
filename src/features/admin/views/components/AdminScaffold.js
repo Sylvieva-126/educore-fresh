@@ -4,7 +4,8 @@
  * optional bottom action area. Every admin screen wraps itself in this.
  */
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, typography, spacing } from '../theme';
 
 export default function AdminScaffold({

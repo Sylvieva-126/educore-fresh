@@ -56,8 +56,7 @@ export class StudentProfilePresenter {
     } catch (error) {
       this._setState({
         status: 'error',
-        errorText:
-          error instanceof ApiError ? error.message : 'Could not load this student.',
+        errorText: error instanceof ApiError ? error.message : 'Could not load this student.',
       });
     }
   }

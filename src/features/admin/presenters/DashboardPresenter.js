@@ -47,8 +47,7 @@ export class DashboardPresenter {
     } catch (error) {
       this._setState({
         status: 'error',
-        errorText:
-          error instanceof ApiError ? error.message : 'Could not load the dashboard.',
+        errorText: error instanceof ApiError ? error.message : 'Could not load the dashboard.',
       });
     }
   }

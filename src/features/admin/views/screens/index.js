@@ -14,7 +14,12 @@ export const ADMIN_SCREENS = {
   AD01: { name: 'AdminHome', title: 'Admin home', Component: AdminHomeView, tab: 'Home' },
   AD02: { name: 'StudentList', title: 'Student list', Component: StudentListView, tab: 'Students' },
   AD03: { name: 'StudentForm', title: 'Register or edit a student', tab: 'Students' },
-  AD04: { name: 'StudentProfile', title: 'Student profile', Component: StudentProfileView, tab: 'Students' },
+  AD04: {
+    name: 'StudentProfile',
+    title: 'Student profile',
+    Component: StudentProfileView,
+    tab: 'Students',
+  },
   AD05: { name: 'GuardianList', title: 'Parents and guardians list', tab: 'More' },
   AD06: { name: 'GuardianProfile', title: 'Guardian profile and child links', tab: 'More' },
   AD07: { name: 'TeacherList', title: 'Teachers list', tab: 'More' },

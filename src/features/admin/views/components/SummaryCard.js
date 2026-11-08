@@ -1,9 +1,10 @@
 /** SummaryCard — the tappable count tiles on AD01 (e.g. "2 Absent students"). */
 import React from 'react';
 import { Text, Pressable, StyleSheet } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, typography, spacing, touchTarget } from '../theme';
 
-export default function SummaryCard({ value, label, onPress, tone }) {
+export default function SummaryCard({ value, label, onPress, tone, icon }) {
   return (
     <Pressable
       onPress={onPress}
@@ -14,6 +15,7 @@ export default function SummaryCard({ value, label, onPress, tone }) {
         pressed && { opacity: 0.8 },
       ]}
     >
+      {icon ? <Ionicons name={icon} size={18} color={colors.primary} style={styles.icon} /> : null}
       <Text style={styles.value}>{String(value)}</Text>
       <Text style={styles.label}>{label}</Text>
     </Pressable>
@@ -32,4 +34,5 @@ const styles = StyleSheet.create({
   },
   value: { ...typography.title, color: colors.primary },
   label: { ...typography.label, marginTop: 2 },
+  icon: { marginBottom: spacing.xs },
 });

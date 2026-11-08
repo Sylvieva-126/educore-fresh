@@ -1,5 +1,5 @@
 /**
- * Central API client for the EduCore admin app 
+ * Central API client for the EduCore admin app
  * EVERY network call in the app goes through here — screens and presenters
  * never call fetch directly. This mirrors the central client from your v1
  * React project (token injection + 401 logout), carried over to React Native.
@@ -9,15 +9,26 @@
  * written here WITHOUT that prefix and the client adds it from API_CONFIG.
  */
 
+import { getToken, fireUnauthorized } from './auth';
+import { demoRequest } from './demoData';
+
+const REAL_API_URL = process.env.EXPO_PUBLIC_API_URL || '';
+
 export const API_CONFIG = {
-  // CHANGE THIS to your Java API base URL (e.g. 'https://my-api.onrender.com')
-  baseUrl: 'https://api.example.invalid/api/v1',
+  // To connect the real Java API: create a .env file in the project root with
+  // EXPO_PUBLIC_API_URL=https://your-api.example.com/api/v1 and restart with
+  // `npx expo start -c`. While it is unset the app runs in DEMO MODE: every
+  // request is answered from api/demoData.js without touching the network —
+  // no CORS errors on web, no "Network error" on the phone.
+  baseUrl: REAL_API_URL || 'https://api.example.invalid/api/v1',
 
   // The `S/` prefix from the endpoint table. If the backend drops or renames
   // it, change this one string and every screen keeps working.
   schoolScope: 'S',
 
   timeoutMs: 20000,
+
+  demo: !REAL_API_URL,
 };
 
 /** Normalised API failure so presenters can show one consistent error shape. */
@@ -29,8 +40,6 @@ export class ApiError extends Error {
     this.details = details || null;
   }
 }
-
-import { getToken, fireUnauthorized } from './auth';
 
 function buildUrl(path, query) {
   const base = API_CONFIG.baseUrl.replace(/\/+$/, '');
@@ -57,6 +66,12 @@ export function path(template, params) {
 
 async function request(template, options = {}) {
   const { method = 'GET', body, query, params } = options;
+
+  // Demo mode — serve the built-in sample data, no network at all.
+  if (API_CONFIG.demo) {
+    return demoRequest({ path: path(template, params), method, query, body });
+  }
+
   const url = buildUrl(path(template, params), query);
 
   const controller = new AbortController();
@@ -75,7 +90,7 @@ async function request(template, options = {}) {
       signal: controller.signal,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-  } catch (networkError) {
+  } catch (_networkError) {
     throw new ApiError(0, 'Network error — check your connection and try again.');
   } finally {
     clearTimeout(timer);

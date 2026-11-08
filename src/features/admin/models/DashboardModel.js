@@ -3,7 +3,7 @@
  * attention, and today's timetable events. The Java API decides which
  * sections the signed-in admin (e.g. Accounts) is allowed to see.
  */
-import { api, normalizePage } from '../api/client';
+import { api } from '../api/client';
 import { endpoints } from '../api/endpoints';
 
 export const DashboardModel = {

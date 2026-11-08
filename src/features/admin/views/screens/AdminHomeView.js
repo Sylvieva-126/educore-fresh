@@ -3,7 +3,7 @@
  * MVP rule: this component only renders state and forwards taps to the
  * Presenter. All data comes from DashboardPresenter / DashboardModel.
  */
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import SummaryCard from '../components/SummaryCard';
@@ -14,7 +14,7 @@ import { DashboardModel } from '../../models';
 import { colors, typography, spacing, touchTarget } from '../theme';
 
 export default function AdminHomeView({ navigation }) {
-  const presenter = useRef(new DashboardPresenter(DashboardModel)).current;
+  const [presenter] = useState(() => new DashboardPresenter(DashboardModel));
   const [state, setState] = useState(presenter.initialState);
 
   useEffect(() => {
@@ -33,7 +33,10 @@ export default function AdminHomeView({ navigation }) {
       actions={
         <>
           <PrimaryButton label="Enrol student" onPress={() => presenter.onEnrolStudent()} />
-          <SecondaryButton label="View school calendar" onPress={() => presenter.onViewCalendar()} />
+          <SecondaryButton
+            label="View school calendar"
+            onPress={() => presenter.onViewCalendar()}
+          />
         </>
       }
     >
@@ -52,21 +55,25 @@ export default function AdminHomeView({ navigation }) {
             <SummaryCard
               value={`${a.registersSubmitted ?? 0} / ${a.registersExpected ?? 0}`}
               label="Registers submitted"
+              icon="checkmark-circle-outline"
               onPress={() => presenter.onViewAttendance()}
             />
             <SummaryCard
               value={a.missingRegisters ?? 0}
               label="Missing register"
+              icon="alert-circle-outline"
               onPress={() => presenter.onViewAttendance()}
             />
             <SummaryCard
               value={a.absentStudents ?? 0}
               label="Absent students"
+              icon="people-outline"
               onPress={() => presenter.onViewAttendance()}
             />
             <SummaryCard
               value={a.lateArrivals ?? 0}
               label="Late arrivals"
+              icon="time-outline"
               onPress={() => presenter.onViewAttendance()}
             />
           </View>
@@ -104,7 +111,11 @@ export function PrimaryButton({ label, onPress, disabled }) {
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => [styles.primary, pressed && { opacity: 0.85 }, disabled && { opacity: 0.5 }]}
+      style={({ pressed }) => [
+        styles.primary,
+        pressed && { opacity: 0.85 },
+        disabled && { opacity: 0.5 },
+      ]}
     >
       <Text style={styles.primaryText}>{label}</Text>
     </Pressable>
@@ -116,7 +127,11 @@ export function SecondaryButton({ label, onPress, disabled }) {
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => [styles.secondary, pressed && { opacity: 0.85 }, disabled && { opacity: 0.5 }]}
+      style={({ pressed }) => [
+        styles.secondary,
+        pressed && { opacity: 0.85 },
+        disabled && { opacity: 0.5 },
+      ]}
     >
       <Text style={styles.secondaryText}>{label}</Text>
     </Pressable>

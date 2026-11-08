@@ -13,7 +13,7 @@
  */
 import React from 'react';
 import { Text, Pressable, StyleSheet } from 'react-native';
-import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { ADMIN_SCREENS, screenComponent } from './views/screens';
@@ -54,7 +54,11 @@ function MenuScreen({ adCodes }) {
 }
 
 function AcademicsMenu() {
-  return <MenuScreen adCodes={['AD11', 'AD12', 'AD13', 'AD14', 'AD15', 'AD16', 'AD17', 'AD18', 'AD19', 'AD20']} />;
+  return (
+    <MenuScreen
+      adCodes={['AD11', 'AD12', 'AD13', 'AD14', 'AD15', 'AD16', 'AD17', 'AD18', 'AD19', 'AD20']}
+    />
+  );
 }
 
 function FeesMenu() {
@@ -64,7 +68,23 @@ function FeesMenu() {
 function MoreMenu() {
   return (
     <MenuScreen
-      adCodes={['AD05', 'AD06', 'AD07', 'AD08', 'AD09', 'AD10', 'AD26', 'AD27', 'AD28', 'AD29', 'AD30', 'AD31', 'AD32', 'AD33', 'AD34']}
+      adCodes={[
+        'AD05',
+        'AD06',
+        'AD07',
+        'AD08',
+        'AD09',
+        'AD10',
+        'AD26',
+        'AD27',
+        'AD28',
+        'AD29',
+        'AD30',
+        'AD31',
+        'AD32',
+        'AD33',
+        'AD34',
+      ]}
     />
   );
 }
@@ -78,7 +98,11 @@ function AdminTabs() {
       }}
     >
       <Tabs.Screen name="HomeTab" component={screenComponent('AD01')} options={{ title: 'Home' }} />
-      <Tabs.Screen name="StudentsTab" component={screenComponent('AD02')} options={{ title: 'Students' }} />
+      <Tabs.Screen
+        name="StudentsTab"
+        component={screenComponent('AD02')}
+        options={{ title: 'Students' }}
+      />
       <Tabs.Screen name="AcademicsTab" component={AcademicsMenu} options={{ title: 'Academics' }} />
       <Tabs.Screen name="FeesTab" component={FeesMenu} options={{ title: 'Fees' }} />
       <Tabs.Screen name="MoreTab" component={MoreMenu} options={{ title: 'More' }} />
@@ -87,8 +111,9 @@ function AdminTabs() {
 }
 
 /**
- * The admin navigator. Wrap with <NavigationContainer> in App.js and give it
- * the auth gate (login → this). Every AD screen is addressable by name.
+ * The admin navigator. It renders INSIDE the app's single NavigationContainer
+ * (the root container in src/navigation) — nested navigators are fine; a
+ * nested NavigationContainer is not. Every AD screen is addressable by name.
  */
 export function AdminNavigator() {
   return (
@@ -106,23 +131,19 @@ export function AdminNavigator() {
   );
 }
 
-export default function AdminApp() {
-  return (
-    <NavigationContainer>
-      <AdminNavigator />
-    </NavigationContainer>
-  );
-}
-
 /* ------------------------------------------------------------------ *
  * Role-module entry — what the shared workspace renders for ADMIN.    *
- * It mounts the whole admin app above (self-contained: own tabs and   *
- * own stack). The context / openShared / target props passed by       *
- * RoleWorkspaceScreen are accepted but not needed yet.                *
+ * It mounts the whole admin app above (own tabs and own stack) as a   *
+ * plain navigator inside the ROOT NavigationContainer. The context /  *
+ * openShared / target props passed by RoleWorkspaceScreen are         *
+ * accepted but not needed yet.                                        *
  * ------------------------------------------------------------------ */
 export function AdminHomeScreen() {
   return <AdminNavigator />;
 }
+
+export default AdminNavigator;
+
 export const adminModule = { HomeScreen: AdminHomeScreen };
 
 const styles = StyleSheet.create({

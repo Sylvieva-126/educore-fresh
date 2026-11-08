@@ -26,7 +26,10 @@ export function ErrorState({ message = 'Something went wrong.', onRetry }) {
     <View style={styles.wrap}>
       <Text style={[styles.title, { color: '#a33a2a' }]}>{message}</Text>
       {onRetry ? (
-        <Pressable onPress={onRetry} style={({ pressed }) => [styles.retry, pressed && { opacity: 0.8 }]}>
+        <Pressable
+          onPress={onRetry}
+          style={({ pressed }) => [styles.retry, pressed && { opacity: 0.8 }]}
+        >
           <Text style={styles.retryText}>Try again</Text>
         </Pressable>
       ) : null}

@@ -6,14 +6,7 @@ import React from 'react';
 import { Modal, View, Text, Pressable, FlatList, StyleSheet } from 'react-native';
 import { colors, typography, spacing, touchTarget } from '../theme';
 
-export default function SelectSheet({
-  visible,
-  label,
-  options = [],
-  value,
-  onSelect,
-  onClose,
-}) {
+export default function SelectSheet({ visible, label, options = [], value, onSelect, onClose }) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
@@ -61,7 +54,12 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   title: { ...typography.sectionTitle, padding: spacing.lg },
-  option: { ...touchTarget, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg },
+  option: {
+    ...touchTarget,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
   optionLabel: { ...typography.body, flex: 1 },
   optionSelected: { color: colors.primary, fontWeight: '700' },
   check: { color: colors.primary, fontSize: 18, fontWeight: '700' },

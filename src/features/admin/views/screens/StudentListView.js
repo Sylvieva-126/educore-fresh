@@ -5,7 +5,7 @@
  * lives in StudentListPresenter. The View only renders `state` and calls
  * `presenter.on*()` when the user does something.
  */
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
@@ -31,7 +31,7 @@ const STATUSES = ['Active', 'Withdrawn', 'Completed']
   .concat([{ label: 'All statuses', value: 'all' }]);
 
 export default function StudentListView({ navigation }) {
-  const presenter = useRef(new StudentListPresenter(StudentModel)).current;
+  const [presenter] = useState(() => new StudentListPresenter(StudentModel));
   const [state, setState] = useState(presenter.initialState);
   const [sheet, setSheet] = useState(null); // which SelectSheet is open
 

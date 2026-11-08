@@ -20,9 +20,7 @@ export const MessagesModel = {
   },
 
   async messages(conversationId, query) {
-    return normalizePage(
-      await api.get(endpoints.messages.messages, { conversationId }, query)
-    );
+    return normalizePage(await api.get(endpoints.messages.messages, { conversationId }, query));
   },
 
   async sendMessage(conversationId, body) {
