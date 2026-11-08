@@ -55,21 +55,25 @@ export default function AdminHomeView({ navigation }) {
             <SummaryCard
               value={`${a.registersSubmitted ?? 0} / ${a.registersExpected ?? 0}`}
               label="Registers submitted"
+              icon="checkmark-circle-outline"
               onPress={() => presenter.onViewAttendance()}
             />
             <SummaryCard
               value={a.missingRegisters ?? 0}
               label="Missing register"
+              icon="alert-circle-outline"
               onPress={() => presenter.onViewAttendance()}
             />
             <SummaryCard
               value={a.absentStudents ?? 0}
               label="Absent students"
+              icon="people-outline"
               onPress={() => presenter.onViewAttendance()}
             />
             <SummaryCard
               value={a.lateArrivals ?? 0}
               label="Late arrivals"
+              icon="time-outline"
               onPress={() => presenter.onViewAttendance()}
             />
           </View>
