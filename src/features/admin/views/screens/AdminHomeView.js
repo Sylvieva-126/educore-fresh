@@ -99,12 +99,14 @@ export default function AdminHomeView({ navigation }) {
           />
 
           <Text style={styles.section}>Today at school</Text>
+          {/* Tapping a slot opens the school calendar (AD11). */}
           <RecordList
             items={state.todaySchedule.map((slot) => ({
               id: slot.id,
               title: `${slot.time} · ${slot.subject}`,
               meta: slot.detail,
             }))}
+            onPressItem={() => presenter.onOpenSchedule()}
             emptyText="No published activities for today."
           />
         </>

@@ -220,7 +220,228 @@ function audienceLabelFor(audience) {
   return 'Whole school';
 }
 
+/* ── AD16 — Attendance registers (today). Built with a loop so the home
+      totals (submitted / expected / missing) stay exactly consistent. ──── */
+
+const REGISTER_CLASSES = ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A', 'SSS1 A', 'SSS2 A', 'SSS3 A'];
+const REGISTER_SLOTS = [
+  { subject: 'Class register', time: '08:00' },
+  { subject: 'Mathematics', time: '10:30' },
+  { subject: 'English Language', time: '12:10' },
+];
+const REGISTER_TEACHERS = ['Mr. Ade Okafor', 'Mrs. Grace Umeh', 'Mr. Emeka Ubah', 'Miss Halima Yusuf'];
+
+const ATTENDANCE_REGISTERS = (() => {
+  const rows = [];
+  let absentLeft = 12; // DASHBOARD.absentStudents — spread one per register
+  let lateLeft = 4; // DASHBOARD.lateArrivals
+  REGISTER_CLASSES.forEach((classLabel, ci) => {
+    REGISTER_SLOTS.forEach((slot, si) => {
+      const missing = (ci === 1 && si === 0) || (ci === 4 && si === 2) || (ci === 6 && si === 1);
+      const submitted = !missing;
+      const absentCount = submitted && absentLeft > 0 ? 1 : 0;
+      if (absentCount) absentLeft -= 1;
+      const lateCount = submitted && lateLeft > 0 ? 1 : 0;
+      if (lateCount) lateLeft -= 1;
+      rows.push({
+        id: `reg-${ci}-${si}`,
+        classLabel,
+        subject: slot.subject,
+        time: slot.time,
+        teacher: REGISTER_TEACHERS[(ci + si) % REGISTER_TEACHERS.length],
+        status: submitted ? 'Submitted' : 'Missing',
+        absentCount,
+        lateCount,
+        submittedAt: submitted ? slot.time : null,
+      });
+    });
+  });
+  return rows;
+})();
+
+// Keep AD01's headline numbers derived from the same register rows.
+DASHBOARD.registersExpected = ATTENDANCE_REGISTERS.length;
+DASHBOARD.registersSubmitted = ATTENDANCE_REGISTERS.filter((r) => r.status === 'Submitted').length;
+DASHBOARD.missingRegisters = ATTENDANCE_REGISTERS.length - DASHBOARD.registersSubmitted;
+
+const ATTENDANCE_CORRECTIONS = [
+  { id: 'cor-1', classLabel: 'JSS1 B', subject: 'Class register', teacher: 'Mrs. Grace Umeh', detail: 'Chiamaka Eze marked absent — guardian says she arrived late', status: 'Pending', requestedAt: todayLabel() },
+  { id: 'cor-2', classLabel: 'SSS3 A', subject: 'Mathematics', teacher: 'Mr. Ade Okafor', detail: 'Daniel Ogun absent but wrote the CA in the hall', status: 'Pending', requestedAt: todayLabel() },
+];
+
+/* ── AD19 — Results review (mark packages + report batches) ─────────── */
+
+const MARK_PACKAGES = [
+  { id: 'pkg-1', classLabel: 'SSS1 A', subject: 'Mathematics', termLabel: 'First Term', teacherName: 'Mr. Ade Okafor', status: 'ReturnedForCorrections', studentCount: 32, detail: 'CA totals do not match the exam sheet for 2 students', submittedAt: '2026-11-08' },
+  { id: 'pkg-2', classLabel: 'SSS2 A', subject: 'Mathematics', termLabel: 'First Term', teacherName: 'Mr. Ade Okafor', status: 'ReturnedForCorrections', studentCount: 28, detail: 'Two absences need a recorded decision', submittedAt: '2026-11-08' },
+  { id: 'pkg-3', classLabel: 'SSS1 A', subject: 'English Language', termLabel: 'First Term', teacherName: 'Mrs. Grace Umeh', status: 'Submitted', studentCount: 32, detail: 'Awaiting admin sign-off', submittedAt: '2026-11-09' },
+  { id: 'pkg-4', classLabel: 'JSS2 A', subject: 'Basic Science', termLabel: 'First Term', teacherName: 'Mr. Emeka Ubah', status: 'Approved', studentCount: 30, detail: 'Signed off', submittedAt: '2026-11-07' },
+];
+
+const REPORT_BATCHES = [
+  { id: 'batch-1', classLabel: 'SSS1 A', termLabel: 'First Term 2026/2027', status: 'ReadyToPublish', studentCount: 32, publishedAt: null },
+  { id: 'batch-2', classLabel: 'JSS1 A', termLabel: 'First Term 2026/2027', status: 'Published', studentCount: 34, publishedAt: '2026-11-05' },
+  { id: 'batch-3', classLabel: 'SSS3 A', termLabel: 'First Term 2026/2027', status: 'Draft', studentCount: 29, publishedAt: null },
+];
+
+/* ── AD24 — Payments, Paystack settlements, reconciliation ──────────── */
+
+const SETTLEMENTS = [
+  { id: 'set-1', provider: 'Paystack', reference: 'PSK-8842-1103-A', amountLabel: '₦85,000', status: 'Unmatched', paidAt: '2026-11-08', studentName: 'Emeka Nwosu', invoiceNumber: 'INV-2026-0148' },
+  { id: 'set-2', provider: 'Paystack', reference: 'PSK-7719-1102-B', amountLabel: '₦30,000', status: 'Unmatched', paidAt: '2026-11-08', studentName: 'Daniel Ogun', invoiceNumber: 'INV-2026-0146' },
+  { id: 'set-3', provider: 'Paystack', reference: 'PSK-6620-1101-C', amountLabel: '₦85,000', status: 'Matched', paidAt: '2026-11-06', studentName: 'Zainab Musa', invoiceNumber: 'INV-2026-0147' },
+];
+
+const PAYMENTS = [
+  { id: 'pay-1', reference: 'PSK-8842-1103-A', studentName: 'Emeka Nwosu', channel: 'Card (Paystack)', amountLabel: '₦85,000', status: 'Unreconciled', paidAt: '2026-11-08 14:22' },
+  { id: 'pay-2', reference: 'PSK-7719-1102-B', studentName: 'Daniel Ogun', channel: 'Card (Paystack)', amountLabel: '₦30,000', status: 'Unreconciled', paidAt: '2026-11-08 09:05' },
+  { id: 'pay-3', reference: 'PSK-6620-1101-C', studentName: 'Zainab Musa', channel: 'Card (Paystack)', amountLabel: '₦85,000', status: 'Reconciled', paidAt: '2026-11-06 18:40' },
+  { id: 'pay-4', reference: 'OFF-2026-0031', studentName: 'Amara Okafor', channel: 'Cash (office)', amountLabel: '₦85,000', status: 'Reconciled', paidAt: '2026-10-30 10:15' },
+  { id: 'pay-5', reference: 'OFF-2026-0032', studentName: 'Chiamaka Eze', channel: 'Bank transfer', amountLabel: '₦40,000', status: 'RefundRequested', paidAt: '2026-11-02 11:30' },
+];
+
+const RECONCILIATIONS = [
+  { id: 'rec-1', paymentRef: 'PSK-6620-1101-C', invoiceNumber: 'INV-2026-0147', amountLabel: '₦85,000', createdBy: 'Admin', createdAt: '2026-11-06' },
+  { id: 'rec-2', paymentRef: 'OFF-2026-0031', invoiceNumber: 'INV-2026-0141', amountLabel: '₦85,000', createdBy: 'Admin', createdAt: '2026-10-30' },
+];
+
+const PAYMENT_EXCEPTIONS = [
+  { id: 'exc-1', reference: 'PSK-5501-1030-D', detail: 'Webhook received for an unknown admission number', amountLabel: '₦25,000', status: 'Open', openedAt: '2026-10-30' },
+];
+
+/* ── AD31/AD32 — Complaints (mutable so replies and state moves work) ── */
+
+const COMPLAINTS = [
+  {
+    id: 'cmp-1',
+    guardianName: 'Mrs. Ify Umeh',
+    studentName: 'Kelechi Umeh',
+    classLabel: 'JSS2 A',
+    channel: 'Phone',
+    subject: 'Transport route change request',
+    detail: 'Requests the afternoon bus to stop at Trans Ekulu junction from next week.',
+    status: 'New',
+    owner: 'Unassigned',
+    openedAt: todayLabel(),
+    replies: [],
+    notes: [],
+    history: [{ id: 'h-1', text: 'Complaint received (phone)', at: todayLabel() }],
+  },
+  {
+    id: 'cmp-2',
+    guardianName: 'Mr. Chidi Eze',
+    studentName: 'Chiamaka Eze',
+    classLabel: 'SSS1 A',
+    channel: 'Email',
+    subject: 'Extra lessons timing',
+    detail: 'Asks whether Saturday extra lessons can move to the afternoon.',
+    status: 'In review',
+    owner: 'Admin',
+    openedAt: '2026-11-06',
+    replies: [
+      { id: 'r-1', author: 'Admin (office)', text: 'Thank you — the dean of studies will confirm by Friday.', at: '2026-11-06' },
+    ],
+    notes: [{ id: 'n-1', author: 'Admin', text: 'Timetable committee to decide at the staff briefing.', at: '2026-11-06' }],
+    history: [
+      { id: 'h-1', text: 'Complaint received (email)', at: '2026-11-06' },
+      { id: 'h-2', text: 'Status → In review', at: '2026-11-06' },
+    ],
+  },
+  {
+    id: 'cmp-3',
+    guardianName: 'Hajiya Amina Mohammed',
+    studentName: 'Aisha Mohammed',
+    classLabel: 'JSS1 A',
+    channel: 'In person',
+    subject: 'Locker repair',
+    detail: 'Locker door does not close; reported at the bursary.',
+    status: 'Resolved',
+    owner: 'Admin',
+    openedAt: '2026-11-03',
+    replies: [{ id: 'r-1', author: 'Admin (office)', text: 'Replaced the latch on 5 November.', at: '2026-11-05' }],
+    notes: [],
+    history: [{ id: 'h-1', text: 'Status → Resolved', at: '2026-11-05' }],
+  },
+];
+
+function filterComplaints(query) {
+  const q = (query.q || query.search || '').toString().trim().toLowerCase();
+  const status = query.status && query.status !== 'all' ? query.status : null;
+  return COMPLAINTS.filter((c) => {
+    if (status && c.status !== status) return false;
+    if (q) {
+      const haystack = `${c.guardianName} ${c.studentName} ${c.subject}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+/* ── AD11 — School calendar ─────────────────────────────────────────── */
+
+const CALENDAR = {
+  sessionLabel: SESSION_LABEL,
+  termLabel: 'First Term',
+  termStart: '2026-09-14',
+  termEnd: '2026-12-11',
+  nextTermStart: '2027-01-11',
+  keyDates: [
+    { id: 'kd-1', date: '2026-11-14', title: 'PTA general meeting', detail: '10:00 am · main hall' },
+    { id: 'kd-2', date: '2026-11-27', title: 'Continuous assessment closes', detail: 'All subjects · all classes' },
+    { id: 'kd-3', date: '2026-12-04', title: 'First-term examinations begin', detail: 'Timetable on the noticeboard' },
+    { id: 'kd-4', date: '2026-12-11', title: 'Term ends / vacation', detail: 'Collection of results from 14 December' },
+    { id: 'kd-5', date: '2027-01-11', title: 'Second term begins', detail: 'Boarders return 10 January' },
+  ],
+  todaySchedule: DASHBOARD.todaySchedule,
+};
+
+const SESSIONS_LIST = [
+  { id: 'ses-1', label: '2026/2027', status: 'Active', terms: 'First: 14 Sep – 11 Dec 2026 · Second: 11 Jan – 2 Apr 2027 · Third: 26 Apr – 16 Jul 2027' },
+  { id: 'ses-2', label: '2025/2026', status: 'Archived', terms: 'Archived — see reports' },
+];
+
+/* ── AD29 — Messages / notifications inbox ──────────────────────────── */
+
+const CONVERSATIONS = [
+  {
+    id: 'cnv-1',
+    title: 'Mrs. Ngozi Okafor',
+    participantLabel: 'Guardian · Amara Okafor (SSS1 A)',
+    unread: 2,
+    lastMessage: 'Thank you — she will bring the fee teller tomorrow.',
+    lastAt: '2026-11-10 08:05',
+    messages: [
+      { id: 'm-1', author: 'Admin (office)', text: 'Good morning — the balance on INV-2026-0141 is ₦0; nothing is owed.', at: '2026-11-09 17:20' },
+      { id: 'm-2', author: 'Mrs. Ngozi Okafor', text: 'Thank you — she will bring the fee teller tomorrow.', at: '2026-11-10 08:05' },
+    ],
+  },
+  {
+    id: 'cnv-3',
+    title: 'Mr. Obi Nwosu',
+    participantLabel: 'Guardian · Emeka Nwosu (JSS1 A)',
+    unread: 1,
+    lastMessage: 'Is the bus running on Friday?',
+    lastAt: '2026-11-10 07:12',
+    messages: [
+      { id: 'm-1', author: 'Mr. Obi Nwosu', text: 'Is the bus running on Friday?', at: '2026-11-10 07:12' },
+    ],
+  },
+  {
+    id: 'cnv-2',
+    title: 'Staff briefing group',
+    participantLabel: 'Group · all teachers',
+    unread: 0,
+    lastMessage: 'Slides for the first-term review are shared.',
+    lastAt: '2026-11-09 16:45',
+    messages: [
+      { id: 'm-1', author: 'Admin (office)', text: 'Slides for the first-term review are shared.', at: '2026-11-09 16:45' },
+    ],
+  },
+];
+
 /* ── The demo router the API client calls in demo mode ──────────────── */
+
+import { cleanText, normalizeEmail, normalizePhone } from '../utils/validators.js';
 
 function paginate(items, page = 1, perPage = 10) {
   const p = Math.max(1, Number(page) || 1);
@@ -250,23 +471,25 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   // AD01 — dashboard
   if (seg[0] === 'dashboard' && m === 'GET') return DASHBOARD;
 
-  // AD03/AD33 — enrol one student (the import loop reuses this same route)
+  // AD03/AD33 — enrol one student (the import loop reuses this same route).
+  // Values are re-cleaned here so hand-built or CSV-sourced rows arrive
+  // trimmed and normalized even if a caller skips the form.
   if (seg[0] === 'student-enrolments' && m === 'POST') {
     const cls = (body && body.classLabel) || 'JSS1 A';
     const student = {
       id: nextStudentId,
-      fullName: `${(body && body.firstName) || ''} ${(body && body.lastName) || ''}`.trim(),
+      fullName: `${cleanText(body && body.firstName)} ${cleanText(body && body.lastName)}`.trim(),
       admissionNumber: `GSS/2026/${String(nextAdmissionNumber).padStart(4, '0')}`,
       classLabel: cls,
       department: cls.startsWith('JSS') ? null : (body && body.department) || null,
       status: 'Active',
-      dateOfBirth: (body && body.dateOfBirth) || '',
+      dateOfBirth: cleanText(body && body.dateOfBirth),
       gender: (body && body.gender) || '',
       admissionDate: todayLabel(),
-      guardianName: (body && body.guardianName) || '',
-      guardianPhone: (body && body.guardianPhone) || '',
-      guardianEmail: (body && body.guardianEmail) || '',
-      address: (body && body.address) || '',
+      guardianName: cleanText(body && body.guardianName),
+      guardianPhone: normalizePhone((body && body.guardianPhone) || ''),
+      guardianEmail: normalizeEmail((body && body.guardianEmail) || ''),
+      address: cleanText(body && body.address),
     };
     nextStudentId += 1;
     nextAdmissionNumber += 1;
@@ -330,6 +553,202 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   // AD22 — invoices
   if (seg[0] === 'finance' && seg[1] === 'invoices' && seg.length === 2 && m === 'GET') {
     return paginate(filterInvoices(query), query.page);
+  }
+
+  // AD16 — attendance overview, registers, correction requests
+  if (seg[0] === 'attendance' && seg[1] === 'overview' && m === 'GET') {
+    return {
+      schoolName: SCHOOL_NAME,
+      sessionLabel: SESSION_LABEL,
+      termLabel: 'First Term',
+      registersSubmitted: DASHBOARD.registersSubmitted,
+      registersExpected: DASHBOARD.registersExpected,
+      missingRegisters: DASHBOARD.missingRegisters,
+      absentStudents: DASHBOARD.absentStudents,
+      lateArrivals: DASHBOARD.lateArrivals,
+      correctionRequests: ATTENDANCE_CORRECTIONS.length,
+    };
+  }
+  if (seg[0] === 'attendance' && seg[1] === 'registers' && m === 'GET') {
+    // One page holds the whole day — the overview screen shows every register.
+    return paginate(ATTENDANCE_REGISTERS, query.page, 50);
+  }
+  if (seg[0] === 'attendance' && seg[1] === 'correction-requests' && m === 'GET') {
+    return paginate(ATTENDANCE_CORRECTIONS, 1, 20);
+  }
+
+  // AD19 — results review (packages + report batches)
+  if (seg[0] === 'mark-packages' && seg.length === 1 && m === 'GET') {
+    return paginate(MARK_PACKAGES, query.page);
+  }
+  if (seg[0] === 'mark-packages' && seg[2] === 'return' && m === 'POST') {
+    const pkg = MARK_PACKAGES.find((p) => p.id === seg[1]);
+    if (pkg) {
+      pkg.status = 'ReturnedForCorrections';
+      pkg.detail = (body && body.reason) || 'Returned for corrections';
+    }
+    return { ok: true };
+  }
+  if (seg[0] === 'class-report-batches' && seg.length === 1 && m === 'GET') {
+    return paginate(REPORT_BATCHES, query.page);
+  }
+  if (seg[0] === 'class-report-batches' && seg[2] === 'publish' && m === 'POST') {
+    const batch = REPORT_BATCHES.find((b) => b.id === seg[1]);
+    if (batch) {
+      batch.status = 'Published';
+      batch.publishedAt = todayLabel();
+    }
+    return { ok: true };
+  }
+  if (seg[0] === 'class-report-batches' && seg[2] === 'reopen' && m === 'POST') {
+    const batch = REPORT_BATCHES.find((b) => b.id === seg[1]);
+    if (batch) {
+      batch.status = 'Draft';
+      batch.publishedAt = null;
+    }
+    return { ok: true };
+  }
+
+  // AD24 — payments, settlements, reconciliation, exceptions
+  if (seg[0] === 'finance' && seg[1] === 'payments' && seg.length === 2 && m === 'GET') {
+    return paginate(PAYMENTS, query.page);
+  }
+  if (seg[0] === 'finance' && seg[1] === 'settlements' && seg.length === 2 && m === 'GET') {
+    return paginate(SETTLEMENTS, query.page);
+  }
+  if (seg[0] === 'finance' && seg[1] === 'reconciliations' && seg.length === 2) {
+    if (m === 'GET') return paginate(RECONCILIATIONS, query.page);
+    if (m === 'POST') {
+      const payment = PAYMENTS.find((p) => p.id === (body && body.paymentId));
+      if (payment) {
+        payment.status = 'Reconciled';
+        payment.invoiceNumber = (body && body.invoiceNumber) || payment.invoiceNumber || '—';
+      }
+      RECONCILIATIONS.unshift({
+        id: `rec-${Date.now()}`,
+        paymentRef: payment ? payment.reference : '—',
+        invoiceNumber: (body && body.invoiceNumber) || '—',
+        amountLabel: payment ? payment.amountLabel : '—',
+        createdBy: 'Admin',
+        createdAt: todayLabel(),
+      });
+      return { ok: true };
+    }
+  }
+  if (seg[0] === 'finance' && seg[1] === 'exceptions' && seg.length === 2 && m === 'GET') {
+    return paginate(PAYMENT_EXCEPTIONS, 1, 20);
+  }
+
+  // AD31/AD32 — complaints: list, detail, replies, notes, state machine
+  if (seg[0] === 'complaints' && seg.length === 1) {
+    if (m === 'GET') return paginate(filterComplaints(query), query.page);
+    if (m === 'POST') {
+      const complaint = {
+        id: `cmp-${Date.now()}`,
+        guardianName: (body && body.guardianName) || 'Guardian',
+        studentName: (body && body.studentName) || '',
+        classLabel: (body && body.classLabel) || '',
+        channel: (body && body.channel) || 'Phone',
+        subject: (body && body.subject) || 'New complaint',
+        detail: (body && body.detail) || '',
+        status: 'New',
+        owner: 'Unassigned',
+        openedAt: todayLabel(),
+        replies: [],
+        notes: [],
+        history: [{ id: 'h-1', text: 'Complaint received', at: todayLabel() }],
+      };
+      COMPLAINTS.unshift(complaint);
+      return complaint;
+    }
+  }
+  const complaint = seg[0] === 'complaints' && seg[1] ? COMPLAINTS.find((c) => c.id === seg[1]) : null;
+  if (complaint && seg.length === 2 && m === 'GET') return complaint;
+  if (complaint && seg[2] === 'replies') {
+    if (m === 'GET') return { items: complaint.replies };
+    complaint.replies.push({
+      id: `r-${complaint.replies.length + 1}`,
+      author: 'Admin (office)',
+      text: (body && body.text) || '',
+      at: todayLabel(),
+    });
+    complaint.history.push({ id: `h-${complaint.history.length + 1}`, text: 'Reply sent to guardian', at: todayLabel() });
+    return { ok: true };
+  }
+  if (complaint && seg[2] === 'internal-notes') {
+    if (m === 'GET') return { items: complaint.notes };
+    complaint.notes.push({
+      id: `n-${complaint.notes.length + 1}`,
+      author: 'Admin',
+      text: (body && body.text) || '',
+      at: todayLabel(),
+    });
+    return { ok: true };
+  }
+  if (complaint && seg[2] === 'state-actions' && m === 'POST') {
+    const actions = {
+      'start-review': 'In review',
+      resolve: 'Resolved',
+      close: 'Closed',
+      reopen: 'In review',
+    };
+    const next = actions[(body && body.action)];
+    if (next) {
+      complaint.status = next;
+      if (next === 'In review' && complaint.owner === 'Unassigned') complaint.owner = 'Admin';
+      complaint.history.push({
+        id: `h-${complaint.history.length + 1}`,
+        text: `Status → ${next}`,
+        at: todayLabel(),
+      });
+    }
+    return complaint;
+  }
+
+  // AD11 — school calendar and sessions
+  if (seg[0] === 'calendar' && seg.length === 1 && m === 'GET') return CALENDAR;
+  if (seg[0] === 'sessions' && seg.length === 1 && m === 'GET') {
+    return { items: SESSIONS_LIST };
+  }
+
+  // AD29/AD30 — messages inbox and threads
+  if (seg[0] === 'conversation-recipients' && m === 'GET') {
+    return {
+      items: ['All guardians', 'All teachers', 'SSS1 A guardians', 'JSS2 A guardians'],
+    };
+  }
+  if (seg[0] === 'conversations' && seg.length === 1) {
+    if (m === 'GET') return paginate(CONVERSATIONS, query.page);
+    if (m === 'POST') {
+      const conversation = {
+        id: `cnv-${Date.now()}`,
+        title: (body && body.title) || 'New conversation',
+        participantLabel: (body && body.recipient) || 'Guardian',
+        unread: 0,
+        lastMessage: (body && body.text) || '',
+        lastAt: todayLabel(),
+        messages: [],
+      };
+      CONVERSATIONS.unshift(conversation);
+      return conversation;
+    }
+  }
+  const conversation =
+    seg[0] === 'conversations' && seg[1] ? CONVERSATIONS.find((c) => c.id === seg[1]) : null;
+  if (conversation && seg[2] === 'messages') {
+    if (m === 'GET') return paginate(conversation.messages, query.page, 20);
+    conversation.messages.push({
+      id: `m-${conversation.messages.length + 1}`,
+      author: 'Admin (office)',
+      text: (body && body.text) || '',
+      at: todayLabel(),
+    });
+    conversation.lastMessage = (body && body.text) || conversation.lastMessage;
+    return { ok: true };
+  }
+  if (conversation && seg[2] === 'read' && m === 'PUT') {
+    conversation.unread = 0;
+    return { ok: true };
   }
 
   // AD28 — notices

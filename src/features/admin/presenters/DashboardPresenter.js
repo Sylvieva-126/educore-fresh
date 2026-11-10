@@ -78,6 +78,11 @@ export class DashboardPresenter {
   onViewCalendar() {
     if (this._navigation) this._navigation.navigate('Calendar');
   }
+
+  /** "Today at school" rows open the calendar (AD11) for the full picture. */
+  onOpenSchedule() {
+    if (this._navigation) this._navigation.navigate('Calendar');
+  }
 }
 
 export default DashboardPresenter;

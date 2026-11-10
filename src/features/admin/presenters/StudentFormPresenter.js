@@ -7,6 +7,15 @@
  * validation errors so nothing the admin typed is lost on a failed submit.
  */
 import { ApiError } from '../api/client';
+import {
+  cleanText,
+  isValidDateOfBirth,
+  isValidEmail,
+  isValidPhone,
+  normalizeDateOfBirth,
+  normalizeEmail,
+  normalizePhone,
+} from '../utils/validators';
 
 const EMPTY_VALUES = {
   firstName: '',
@@ -94,13 +103,22 @@ export class StudentFormPresenter {
   validate() {
     const errors = {};
     const v = this.state.values;
-    if (!v.firstName.trim()) errors.firstName = 'First name is required.';
-    if (!v.lastName.trim()) errors.lastName = 'Last name is required.';
+    if (!cleanText(v.firstName)) errors.firstName = 'First name is required.';
+    if (!cleanText(v.lastName)) errors.lastName = 'Last name is required.';
     if (!v.classLabel) errors.classLabel = 'Choose a class.';
-    if (!v.guardianName.trim()) errors.guardianName = 'A guardian name is required.';
-    if (!v.guardianPhone.trim()) errors.guardianPhone = 'A guardian phone number is required.';
-    if (v.dateOfBirth.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(v.dateOfBirth.trim())) {
-      errors.dateOfBirth = 'Use the YYYY-MM-DD format.';
+    if (!cleanText(v.guardianName)) errors.guardianName = 'A guardian name is required.';
+    if (!cleanText(v.guardianPhone)) {
+      errors.guardianPhone = 'A guardian phone number is required.';
+    } else if (!isValidPhone(v.guardianPhone)) {
+      errors.guardianPhone =
+        'Enter a valid number, e.g. +234 803 111 2233 or 08031112233.';
+    }
+    if (cleanText(v.guardianEmail) && !isValidEmail(v.guardianEmail)) {
+      errors.guardianEmail = 'Enter a valid email, e.g. ngozi.okafor@example.com.';
+    }
+    if (cleanText(v.dateOfBirth) && !isValidDateOfBirth(v.dateOfBirth)) {
+      errors.dateOfBirth =
+        'Use a real date in YYYY-MM-DD format (not in the future).';
     }
     return errors;
   }
@@ -115,17 +133,19 @@ export class StudentFormPresenter {
 
     this._setState({ status: 'saving', errorText: null, notice: null });
     const v = this.state.values;
+    // Everything is trimmed/normalized here so the server never sees
+    // "  Amara ", "0803 111  2233" or an email with stray capitals.
     const body = {
-      firstName: v.firstName.trim(),
-      lastName: v.lastName.trim(),
+      firstName: cleanText(v.firstName),
+      lastName: cleanText(v.lastName),
       gender: v.gender || undefined,
-      dateOfBirth: v.dateOfBirth.trim() || undefined,
+      dateOfBirth: normalizeDateOfBirth(v.dateOfBirth) || undefined,
       classLabel: v.classLabel,
       // JSS classes have no department (AD02 list already shows this rule).
       department: v.classLabel.startsWith('JSS') ? null : v.department || null,
-      guardianName: v.guardianName.trim(),
-      guardianPhone: v.guardianPhone.trim(),
-      guardianEmail: v.guardianEmail.trim() || undefined,
+      guardianName: cleanText(v.guardianName),
+      guardianPhone: normalizePhone(v.guardianPhone),
+      guardianEmail: normalizeEmail(v.guardianEmail) || undefined,
     };
 
     try {

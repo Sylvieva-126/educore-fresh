@@ -132,6 +132,7 @@ export default function StudentFormView({ route, navigation }) {
         value={v.guardianPhone}
         onChangeText={(t) => presenter.onValueChange('guardianPhone', t)}
         placeholder="e.g. +234 803 111 2233"
+        keyboardType="phone-pad"
         error={state.errors.guardianPhone}
       />
       <LabelledField
@@ -139,6 +140,9 @@ export default function StudentFormView({ route, navigation }) {
         value={v.guardianEmail}
         onChangeText={(t) => presenter.onValueChange('guardianEmail', t)}
         placeholder="e.g. ngozi.okafor@example.com"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        error={state.errors.guardianEmail}
       />
 
       <PrimaryButton

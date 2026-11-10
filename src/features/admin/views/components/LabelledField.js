@@ -17,6 +17,8 @@ export default function LabelledField({
   error,
   multiline = false,
   numberOfLines = 1,
+  keyboardType,
+  autoCapitalize,
 }) {
   const isPressable = Boolean(onPress);
   return (
@@ -38,6 +40,9 @@ export default function LabelledField({
           placeholderTextColor={colors.muted}
           multiline={multiline}
           numberOfLines={numberOfLines}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={false}
         />
       )}
       {error ? <Text style={styles.error}>{error}</Text> : null}
