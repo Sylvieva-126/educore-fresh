@@ -65,3 +65,17 @@ export function isValidDateOfBirth(value) {
   if (year < 1900) return false;
   return date.getTime() <= Date.now(); // no future births
 }
+
+/** The classes this school actually runs (mirrors the AD03 dropdown). */
+export const CLASS_LABELS = ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A', 'SSS1 A', 'SSS2 A', 'SSS3 A'];
+
+/** "jss3 a" / "JSS 3A" / "jss3a" → "JSS3 A"; anything else comes back trimmed. */
+export function normalizeClassLabel(value) {
+  const squashed = String(value ?? '').trim().toUpperCase().replace(/\s+/g, '');
+  const match = /^(JSS|SSS)(\d)([A-Z])$/.exec(squashed);
+  return match ? `${match[1]}${match[2]} ${match[3]}` : String(value ?? '').trim();
+}
+
+export function isValidClassLabel(value) {
+  return CLASS_LABELS.includes(normalizeClassLabel(value));
+}

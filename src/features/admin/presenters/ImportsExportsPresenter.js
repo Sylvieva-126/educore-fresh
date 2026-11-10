@@ -8,6 +8,18 @@
  */
 import { ApiError } from '../api/client';
 import { toCsv, parseCsv, shareOrCopyCsv } from '../api/csv';
+import {
+  cleanText,
+  isValidClassLabel,
+  isValidDateOfBirth,
+  isValidEmail,
+  isValidPhone,
+  normalizeClassLabel,
+  normalizeEmail,
+  normalizePhone,
+} from '../utils/validators';
+
+const CLASS_HELP = 'class must be one of: JSS1 A, JSS1 B, JSS2 A, JSS3 A, SSS1 A, SSS2 A, SSS3 A';
 
 const EXPORT_COLUMNS = [
   { key: 'admissionNumber', header: 'admissionNumber' },
@@ -35,16 +47,34 @@ function rowToStudent(fields) {
     department = '',
     guardianName = '',
     guardianPhone = '',
+    guardianEmail = '',
   ] = fields;
-  return { firstName, lastName, gender, dateOfBirth, classLabel, department, guardianName, guardianPhone };
+  return {
+    firstName: cleanText(firstName),
+    lastName: cleanText(lastName),
+    gender: cleanText(gender),
+    dateOfBirth: cleanText(dateOfBirth),
+    classLabel: normalizeClassLabel(classLabel),
+    department: cleanText(department),
+    guardianName: cleanText(guardianName),
+    guardianPhone: normalizePhone(guardianPhone),
+    guardianEmail: normalizeEmail(guardianEmail),
+  };
 }
 
 function validateRow(student) {
   if (!student.firstName) return 'firstName is empty';
   if (!student.lastName) return 'lastName is empty';
   if (!student.classLabel) return 'class is empty';
-  if (student.dateOfBirth && !/^\d{4}-\d{2}-\d{2}$/.test(student.dateOfBirth)) {
-    return 'dateOfBirth must be YYYY-MM-DD';
+  if (!isValidClassLabel(student.classLabel)) return CLASS_HELP;
+  if (student.dateOfBirth && !isValidDateOfBirth(student.dateOfBirth)) {
+    return 'dateOfBirth must be a real date in YYYY-MM-DD format';
+  }
+  if (student.guardianPhone && !isValidPhone(student.guardianPhone)) {
+    return 'guardianPhone must be a valid number, e.g. +234 803 111 2233';
+  }
+  if (student.guardianEmail && !isValidEmail(student.guardianEmail)) {
+    return 'guardianEmail must be a valid email address';
   }
   return null;
 }
@@ -103,8 +133,16 @@ export class ImportsExportsPresenter {
   async onExport() {
     this._setState({ exporting: true, exportNotice: null });
     try {
-      const page = await this.model.listFull({ page: 1 });
-      const items = page.items || [];
+      // Walk every page so the CSV holds ALL students, not just the first 10.
+      const items = [];
+      let page = 1;
+      let pages = 1;
+      do {
+        const result = await this.model.listFull({ page });
+        items.push(...(result.items || []));
+        pages = result.pages || 1;
+        page += 1;
+      } while (page <= pages);
       if (items.length === 0) {
         this._setState({ exportNotice: 'There are no students to export yet.' });
         return;
@@ -135,6 +173,7 @@ export class ImportsExportsPresenter {
           department: s.classLabel.startsWith('JSS') ? null : s.department || null,
           guardianName: s.guardianName || undefined,
           guardianPhone: s.guardianPhone || undefined,
+          guardianEmail: s.guardianEmail || undefined,
         });
         imported += 1;
       }
@@ -143,7 +182,7 @@ export class ImportsExportsPresenter {
         pasted: '',
         rows: [],
         problems: [],
-        notice: `Imported ${imported} students — they now appear in the student list.`,
+        notice: `Imported ${imported} students — they are at the END of the student list (last pages).`,
       });
     } catch (error) {
       this._setState({

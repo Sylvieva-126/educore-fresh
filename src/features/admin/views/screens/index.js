@@ -15,6 +15,7 @@ import AttendanceOverviewView from './AttendanceOverviewView';
 import ResultsReviewView from './ResultsReviewView';
 import PaymentsBoardView from './PaymentsBoardView';
 import MessageInboxView from './MessageInboxView';
+import ConversationView from './ConversationView';
 import ComplaintsListView from './ComplaintsListView';
 import ComplaintDetailView from './ComplaintDetailView';
 import PlaceholderScreen from './PlaceholderScreen';
@@ -84,7 +85,12 @@ export const ADMIN_SCREENS = {
     Component: MessageInboxView,
     tab: 'More',
   },
-  AD30: { name: 'Conversation', title: 'One private conversation', tab: 'More' },
+  AD30: {
+    name: 'Conversation',
+    title: 'One private conversation',
+    Component: ConversationView,
+    tab: 'More',
+  },
   AD31: {
     name: 'ComplaintsList',
     title: 'Complaints list',

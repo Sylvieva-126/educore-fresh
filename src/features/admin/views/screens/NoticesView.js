@@ -26,6 +26,7 @@ export default function NoticesView({ navigation }) {
   const [presenter] = useState(() => new NoticesPresenter(NoticesModel));
   const [state, setState] = useState(presenter.initialState);
   const [audienceSheetVisible, setAudienceSheetVisible] = useState(false);
+  const [actionNotice, setActionNotice] = useState(null); // notice awaiting publish/archive
 
   useEffect(() => {
     presenter.attach(setState, navigation);
@@ -56,11 +57,18 @@ export default function NoticesView({ navigation }) {
           items={state.notices.map((n) => ({
             id: n.id,
             title: n.title,
-            meta: n.audienceLabel || n.audience || '',
+            meta: `${n.audienceLabel || n.audience || ''}${
+              n.publishedAt ? ` · published ${n.publishedAt}` : ''
+            }`,
             status: n.status,
+            raw: n,
           }))}
+          onPressItem={(row) => setActionNotice(row.raw)}
           emptyText="No announcements yet."
         />
+      ) : null}
+      {state.status === 'content' ? (
+        <Text style={styles.hint}>Tap an announcement to publish or archive it.</Text>
       ) : null}
 
       <Text style={styles.section}>New announcement</Text>
@@ -96,8 +104,8 @@ export default function NoticesView({ navigation }) {
             composer.state === 'saving'
               ? 'Saving…'
               : composer.state === 'accepted'
-                ? 'Published ✓'
-                : 'Save and publish'
+                ? 'Saved ✓'
+                : 'Save announcement (as draft)'
           }
           onPress={() => presenter.submitNotice()}
           disabled={composer.state === 'saving'}
@@ -112,6 +120,26 @@ export default function NoticesView({ navigation }) {
         onSelect={(v) => presenter.onComposerChange('audience', v)}
         onClose={() => setAudienceSheetVisible(false)}
       />
+      <SelectSheet
+        visible={Boolean(actionNotice)}
+        label={actionNotice ? actionNotice.title : 'Announcement'}
+        options={
+          actionNotice && actionNotice.status === 'Draft'
+            ? [
+                { label: 'Publish now', value: 'publish' },
+                { label: 'Archive', value: 'archive' },
+              ]
+            : [{ label: 'Archive', value: 'archive' }]
+        }
+        value={null}
+        onSelect={(v) => {
+          const notice = actionNotice;
+          setActionNotice(null);
+          if (v === 'publish') presenter.publishNotice(notice);
+          if (v === 'archive') presenter.archiveNotice(notice);
+        }}
+        onClose={() => setActionNotice(null)}
+      />
     </AdminScaffold>
   );
 }
@@ -120,4 +148,5 @@ const styles = StyleSheet.create({
   section: { ...typography.sectionTitle, marginTop: spacing.lg, marginBottom: spacing.sm },
   error: { ...typography.label, color: '#a33a2a', marginBottom: spacing.sm },
   accepted: { ...typography.label, color: colors.primary, marginBottom: spacing.sm },
+  hint: { ...typography.label, color: colors.muted, marginTop: spacing.sm },
 });

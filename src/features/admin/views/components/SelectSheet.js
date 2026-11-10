@@ -44,16 +44,24 @@ export default function SelectSheet({ visible, label, options = [], value, onSel
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
   backdropTouch: { flex: 1 },
   sheet: {
     backgroundColor: colors.white,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: colors.primary,
+    width: '100%',
+    maxWidth: 480,
     maxHeight: '70%',
-    paddingBottom: spacing.xl,
+    overflow: 'hidden',
+    alignSelf: 'center',
+    paddingBottom: spacing.md,
   },
   title: { ...typography.sectionTitle, padding: spacing.lg },
   option: {
@@ -61,6 +69,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   optionLabel: { ...typography.body, flex: 1 },
   optionSelected: { color: colors.primary, fontWeight: '700' },

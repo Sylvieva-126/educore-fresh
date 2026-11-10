@@ -9,15 +9,15 @@ import { LoadingView, EmptyState, ErrorState } from '../components/FeedbackViews
 import { MessageInboxPresenter } from '../../presenters/MessageInboxPresenter';
 import { MessagesModel } from '../../models';
 
-export default function MessageInboxView() {
+export default function MessageInboxView({ navigation }) {
   const [presenter] = useState(() => new MessageInboxPresenter(MessagesModel));
   const [state, setState] = useState(presenter.initialState);
 
   useEffect(() => {
-    presenter.attach(setState);
+    presenter.attach(setState, navigation);
     presenter.load();
     return () => presenter.detach();
-  }, [presenter]);
+  }, [presenter, navigation]);
 
   return (
     <AdminScaffold

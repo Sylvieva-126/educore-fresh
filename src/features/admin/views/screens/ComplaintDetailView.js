@@ -18,12 +18,13 @@ export default function ComplaintDetailView({ route }) {
   const [state, setState] = useState(presenter.initialState);
   const [replyText, setReplyText] = useState('');
   const [noteText, setNoteText] = useState('');
+  const caseId = route.params?.caseId;
 
   useEffect(() => {
     presenter.attach(setState);
-    presenter.load(route.params.caseId);
+    if (caseId) presenter.load(caseId);
     return () => presenter.detach();
-  }, [presenter, route.params]);
+  }, [presenter, caseId]);
 
   const c = state.complaint;
 
@@ -33,6 +34,17 @@ export default function ComplaintDetailView({ route }) {
       { text: 'Close case', style: 'destructive', onPress: () => presenter.onStateAction('close') },
     ]);
   };
+
+  if (!caseId) {
+    return (
+      <AdminScaffold eyebrow="Complaint" title="Complaint details">
+        <ErrorState
+          message="Open a case from the complaints list — this page shows one complaint's full details."
+          onRetry={null}
+        />
+      </AdminScaffold>
+    );
+  }
 
   return (
     <AdminScaffold
