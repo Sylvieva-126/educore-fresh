@@ -3,7 +3,7 @@
  * register list under them; taps on the totals jump around this same screen.
  */
 import React, { useEffect, useState } from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import SummaryCard from '../components/SummaryCard';
 import RecordList from '../components/RecordList';
