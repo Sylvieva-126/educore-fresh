@@ -3,7 +3,7 @@
  * (unmatched ones are tappable to reconcile), the payment ledger under them,
  * and any webhook exceptions at the bottom.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text, Alert, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
@@ -12,15 +12,25 @@ import { PaymentsBoardPresenter } from '../../presenters/PaymentsBoardPresenter'
 import { FinanceModel } from '../../models';
 import { typography, spacing } from '../theme';
 
-export default function PaymentsBoardView() {
+export default function PaymentsBoardView({ navigation }) {
   const [presenter] = useState(() => new PaymentsBoardPresenter(FinanceModel));
   const [state, setState] = useState(presenter.initialState);
+  const loadedOnce = useRef(false);
 
   useEffect(() => {
-    presenter.attach(setState);
+    presenter.attach(setState, navigation);
     presenter.load();
-    return () => presenter.detach();
-  }, [presenter]);
+    // Settlements and exceptions change as the office acts, so re-fetch on
+    // every focus after the first.
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (loadedOnce.current) presenter.load();
+      loadedOnce.current = true;
+    });
+    return () => {
+      unsubscribe?.remove?.();
+      presenter.detach();
+    };
+  }, [presenter, navigation]);
 
   const confirmMatch = (settlement) => {
     Alert.alert(

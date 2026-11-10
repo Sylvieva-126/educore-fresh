@@ -4,7 +4,7 @@
  * disabled submit while saving, accepted confirmation after the backend
  * response — all driven by NoticesPresenter state.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
@@ -27,11 +27,21 @@ export default function NoticesView({ navigation }) {
   const [state, setState] = useState(presenter.initialState);
   const [audienceSheetVisible, setAudienceSheetVisible] = useState(false);
   const [actionNotice, setActionNotice] = useState(null); // notice awaiting publish/archive
+  const loadedOnce = useRef(false);
 
   useEffect(() => {
     presenter.attach(setState, navigation);
     presenter.load();
-    return () => presenter.detach();
+    // Notice statuses can change after composer actions elsewhere, so re-fetch
+    // on every focus after the first.
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (loadedOnce.current) presenter.load();
+      loadedOnce.current = true;
+    });
+    return () => {
+      unsubscribe?.remove?.();
+      presenter.detach();
+    };
   }, [presenter, navigation]);
 
   const { composer } = state;

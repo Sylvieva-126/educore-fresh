@@ -108,9 +108,10 @@ export class ComplaintDetailPresenter {
       await this.load(this._caseId);
     } catch (error) {
       this._setState({
-        saving: null,
         errorText: error instanceof ApiError ? error.message : 'The case could not be updated.',
       });
+    } finally {
+      if (this._alive) this._setState({ saving: null });
     }
   }
 }

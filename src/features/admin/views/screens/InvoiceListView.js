@@ -3,7 +3,7 @@
  * InvoiceListPresenter. Invoice amounts come from the backend — never
  * calculated on the phone.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { TextInput, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
@@ -22,11 +22,21 @@ export default function InvoiceListView({ navigation }) {
   const [presenter] = useState(() => new InvoiceListPresenter(FinanceModel));
   const [state, setState] = useState(presenter.initialState);
   const [sheetVisible, setSheetVisible] = useState(false);
+  const loadedOnce = useRef(false);
 
   useEffect(() => {
     presenter.attach(setState, navigation);
     presenter.load();
-    return () => presenter.detach();
+    // Invoice statuses change on the payment screens, so re-fetch on every
+    // focus after the first.
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (loadedOnce.current) presenter.load();
+      loadedOnce.current = true;
+    });
+    return () => {
+      unsubscribe?.remove?.();
+      presenter.detach();
+    };
   }, [presenter, navigation]);
 
   const rows = state.invoices.map((inv) => ({

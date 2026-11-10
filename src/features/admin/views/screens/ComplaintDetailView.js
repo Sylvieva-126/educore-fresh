@@ -3,7 +3,7 @@
  * the reply box and internal notes in the middle, the state-machine buttons
  * at the bottom. Closing asks twice (confirm alert) per the handoff.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import StatusBadge from '../components/StatusBadge';
@@ -13,17 +13,27 @@ import { ComplaintDetailPresenter } from '../../presenters/ComplaintDetailPresen
 import { ComplaintsModel } from '../../models';
 import { colors, typography, spacing, statusTone } from '../theme';
 
-export default function ComplaintDetailView({ route }) {
+export default function ComplaintDetailView({ route, navigation }) {
   const [presenter] = useState(() => new ComplaintDetailPresenter(ComplaintsModel));
   const [state, setState] = useState(presenter.initialState);
   const [replyText, setReplyText] = useState('');
   const [noteText, setNoteText] = useState('');
   const caseId = route.params?.caseId;
+  const loadedOnce = useRef(false);
 
   useEffect(() => {
     presenter.attach(setState);
     if (caseId) presenter.load(caseId);
-    return () => presenter.detach();
+    // The case can change elsewhere (state moves, replies), so re-fetch on
+    // every focus after the first.
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (loadedOnce.current && caseId) presenter.load(caseId);
+      loadedOnce.current = true;
+    });
+    return () => {
+      unsubscribe?.remove?.();
+      presenter.detach();
+    };
   }, [presenter, caseId]);
 
   const c = state.complaint;
@@ -97,14 +107,16 @@ export default function ComplaintDetailView({ route }) {
             value={replyText}
             onChangeText={setReplyText}
           />
-          <PrimaryButton
-            label={state.saving === 'reply' ? 'Sending…' : 'Send reply'}
-            disabled={!replyText.trim() || Boolean(state.saving)}
-            onPress={() => {
-              presenter.onReply(replyText);
-              setReplyText('');
-            }}
-          />
+          <View style={styles.sendBtn}>
+            <PrimaryButton
+              label={state.saving === 'reply' ? 'Sending…' : 'Send reply'}
+              disabled={!replyText.trim() || Boolean(state.saving)}
+              onPress={() => {
+                presenter.onReply(replyText);
+                setReplyText('');
+              }}
+            />
+          </View>
 
           <Text style={styles.section}>Internal notes</Text>
           <Text style={styles.hint}>Notes stay inside the office — guardians never see them.</Text>
@@ -125,14 +137,16 @@ export default function ComplaintDetailView({ route }) {
             value={noteText}
             onChangeText={setNoteText}
           />
-          <SecondaryButton
-            label={state.saving === 'note' ? 'Saving…' : 'Add internal note'}
-            disabled={!noteText.trim() || Boolean(state.saving)}
-            onPress={() => {
-              presenter.onAddNote(noteText);
-              setNoteText('');
-            }}
-          />
+          <View style={styles.sendBtn}>
+            <SecondaryButton
+              label={state.saving === 'note' ? 'Saving…' : 'Add internal note'}
+              disabled={!noteText.trim() || Boolean(state.saving)}
+              onPress={() => {
+                presenter.onAddNote(noteText);
+                setNoteText('');
+              }}
+            />
+          </View>
 
           <Text style={styles.section}>Move this case</Text>
           {state.errorText ? <Text style={styles.error}>{state.errorText}</Text> : null}
@@ -181,4 +195,5 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   actions: { gap: spacing.sm, marginTop: spacing.xs },
+  sendBtn: { marginTop: spacing.md },
 });

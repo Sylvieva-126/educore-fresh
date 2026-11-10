@@ -2,7 +2,7 @@
  * AD31 — Complaints list (View). Search + status filter + the case list;
  * tapping a case opens AD32. The status choices mirror the state machine.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { TextInput, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
@@ -17,11 +17,21 @@ export default function ComplaintsListView({ navigation }) {
   const [presenter] = useState(() => new ComplaintsListPresenter(ComplaintsModel));
   const [state, setState] = useState(presenter.initialState);
   const [sheet, setSheet] = useState(false);
+  const loadedOnce = useRef(false);
 
   useEffect(() => {
     presenter.attach(setState, navigation);
     presenter.load();
-    return () => presenter.detach();
+    // Case statuses change on the detail page, so re-fetch on every focus
+    // after the first — the tags here stay current.
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (loadedOnce.current) presenter.load();
+      loadedOnce.current = true;
+    });
+    return () => {
+      unsubscribe?.remove?.();
+      presenter.detach();
+    };
   }, [presenter, navigation]);
 
   const { filters } = state;

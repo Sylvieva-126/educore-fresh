@@ -75,14 +75,16 @@ export default function ConversationView({ route }) {
             value={replyText}
             onChangeText={setReplyText}
           />
-          <PrimaryButton
-            label={state.sending ? 'Sending…' : 'Send message'}
-            disabled={!replyText.trim() || state.sending}
-            onPress={() => {
-              presenter.onSend(replyText);
-              setReplyText('');
-            }}
-          />
+          <View style={styles.sendBtn}>
+            <PrimaryButton
+              label={state.sending ? 'Sending…' : 'Send message'}
+              disabled={!replyText.trim() || state.sending}
+              onPress={() => {
+                presenter.onSend(replyText);
+                setReplyText('');
+              }}
+            />
+          </View>
         </View>
       ) : null}
     </AdminScaffold>
@@ -100,6 +102,7 @@ const styles = StyleSheet.create({
   time: { ...typography.label, color: colors.muted, marginTop: 2 },
   empty: { ...typography.body, color: colors.muted, marginTop: spacing.sm },
   error: { ...typography.label, color: '#a33a2a', marginBottom: spacing.sm },
+  sendBtn: { marginTop: spacing.md },
   input: {
     ...typography.input,
     backgroundColor: colors.white,

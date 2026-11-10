@@ -15,6 +15,7 @@ export class MessageInboxPresenter {
       status: 'loading', // loading | content | empty | error
       conversations: [],
       recipients: [], // groups the office can start a conversation with
+      people: [], // the people inside the group picked in the first step
       starting: false,
       errorText: null,
     };
@@ -69,12 +70,24 @@ export class MessageInboxPresenter {
     }
   }
 
+  /** New message step 2: the people inside the group picked in step 1. */
+  async loadPeople(group, onReady) {
+    try {
+      const result = await this.model.recipients({ page: 1, group });
+      const items = Array.isArray(result) ? result : result.items || [];
+      this._setState({ people: items });
+      if (onReady) onReady();
+    } catch {
+      this._setState({ errorText: 'Could not load that recipient list — try again.' });
+    }
+  }
+
   /** New message: create the conversation with the chosen group, open its thread. */
   async onStartConversation(recipient) {
     if (this.state.starting || !recipient) return;
     this._setState({ starting: true });
     try {
-      const conversation = await this.model.startConversation({ recipient });
+      const conversation = await this.model.startConversation({ recipient, title: recipient });
       await this.load();
       if (this._navigation && conversation && conversation.id) {
         this._navigation.navigate('Conversation', { conversationId: conversation.id });

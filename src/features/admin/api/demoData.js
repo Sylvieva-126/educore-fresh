@@ -730,6 +730,28 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
 
   // AD29/AD30 — messages inbox and threads
   if (seg[0] === 'conversation-recipients' && m === 'GET') {
+    if (query.group) {
+      // Two-step "new message": group first, then the people inside it.
+      const group = String(query.group);
+      if (group === 'All teachers') {
+        return {
+          items: [...new Set(MARK_PACKAGES.map((p) => p.teacherName))].map((t) => ({
+            label: t,
+            value: t,
+          })),
+        };
+      }
+      const classGroup = group.endsWith(' guardians') ? group.slice(0, -' guardians'.length) : null;
+      const guardians = STUDENTS.filter(
+        (s) => group === 'All guardians' || (classGroup && s.classLabel === classGroup),
+      );
+      return {
+        items: guardians.map((s) => ({
+          label: `${s.guardianName} · guardian of ${s.fullName} (${s.classLabel})`,
+          value: s.guardianName,
+        })),
+      };
+    }
     return {
       items: ['All guardians', 'All teachers', 'SSS1 A guardians', 'JSS2 A guardians'],
     };
@@ -737,10 +759,11 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   if (seg[0] === 'conversations' && seg.length === 1) {
     if (m === 'GET') return paginate(CONVERSATIONS, query.page);
     if (m === 'POST') {
+      const recipient = (body && body.recipient) || 'Guardian';
       const conversation = {
         id: `cnv-${Date.now()}`,
-        title: (body && body.title) || 'New conversation',
-        participantLabel: (body && body.recipient) || 'Guardian',
+        title: (body && body.title) || recipient,
+        participantLabel: recipient,
         unread: 0,
         lastMessage: (body && body.text) || '',
         lastAt: todayLabel(),

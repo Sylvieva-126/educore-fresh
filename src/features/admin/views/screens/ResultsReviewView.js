@@ -3,7 +3,7 @@
  * returns it to the teacher; tapping a ready batch publishes the report
  * cards (with a confirm), tapping a published batch reopens it.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text, Alert, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
@@ -12,15 +12,25 @@ import { ResultsReviewPresenter } from '../../presenters/ResultsReviewPresenter'
 import { ResultsModel } from '../../models';
 import { typography, spacing } from '../theme';
 
-export default function ResultsReviewView() {
+export default function ResultsReviewView({ navigation }) {
   const [presenter] = useState(() => new ResultsReviewPresenter(ResultsModel));
   const [state, setState] = useState(presenter.initialState);
+  const loadedOnce = useRef(false);
 
   useEffect(() => {
-    presenter.attach(setState);
+    presenter.attach(setState, navigation);
     presenter.load();
-    return () => presenter.detach();
-  }, [presenter]);
+    // Package and batch statuses also change from other pages, so re-fetch on
+    // every focus after the first.
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (loadedOnce.current) presenter.load();
+      loadedOnce.current = true;
+    });
+    return () => {
+      unsubscribe?.remove?.();
+      presenter.detach();
+    };
+  }, [presenter, navigation]);
 
   const confirmReturn = (pkg) => {
     Alert.alert(

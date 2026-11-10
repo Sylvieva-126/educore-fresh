@@ -2,7 +2,7 @@
  * AD29 — School messages (View): the notifications inbox. One row per
  * conversation with its unread badge; opening a thread goes to AD30.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
@@ -17,11 +17,22 @@ export default function MessageInboxView({ navigation }) {
   const [presenter] = useState(() => new MessageInboxPresenter(MessagesModel));
   const [state, setState] = useState(presenter.initialState);
   const [newChatSheet, setNewChatSheet] = useState(false);
+  const [peopleSheet, setPeopleSheet] = useState(false);
+  const loadedOnce = useRef(false);
 
   useEffect(() => {
     presenter.attach(setState, navigation);
     presenter.load();
-    return () => presenter.detach();
+    // Unread badges change when threads are opened elsewhere, so re-fetch on
+    // every focus after the first.
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (loadedOnce.current) presenter.load();
+      loadedOnce.current = true;
+    });
+    return () => {
+      unsubscribe?.remove?.();
+      presenter.detach();
+    };
   }, [presenter, navigation]);
 
   return (
@@ -61,14 +72,20 @@ export default function MessageInboxView({ navigation }) {
 
       <SelectSheet
         visible={newChatSheet}
-        label="Start a conversation with"
+        label="Message which group?"
         options={state.recipients.map((r) => ({ label: r, value: r }))}
         value={null}
-        onSelect={(v) => {
-          setNewChatSheet(false);
-          presenter.onStartConversation(v);
-        }}
+        onSelect={(v) => presenter.loadPeople(v, () => setPeopleSheet(true))}
         onClose={() => setNewChatSheet(false)}
+      />
+
+      <SelectSheet
+        visible={peopleSheet}
+        label="Message which person?"
+        options={state.people.map((p) => ({ label: p.label, value: p.value }))}
+        value={null}
+        onSelect={(v) => presenter.onStartConversation(v)}
+        onClose={() => setPeopleSheet(false)}
       />
     </AdminScaffold>
   );
