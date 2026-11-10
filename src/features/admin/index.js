@@ -148,7 +148,7 @@ export function AdminNavigator() {
           key={code}
           name={entry.name}
           component={screenComponent(code)}
-          options={{ title: entry.title }}
+          options={{ title: entry.title, headerShown: false }}
         />
       ))}
       {/* Safety net: older presenters navigate to "ADxx Placeholder" names.
@@ -161,7 +161,7 @@ export function AdminNavigator() {
             key={`${code}-placeholder-alias`}
             name={`${code} Placeholder`}
             component={screenComponent(code)}
-            options={{ title: entry.title }}
+            options={{ title: entry.title, headerShown: false }}
           />
         ))}
     </Stack.Navigator>

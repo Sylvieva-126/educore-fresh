@@ -48,6 +48,17 @@ export default function ResultsReviewView() {
     );
   };
 
+  const confirmSubmit = (batch) => {
+    Alert.alert(
+      'Send for review?',
+      `${batch.classLabel} · ${batch.termLabel} is checked and moves to Ready to publish.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Send', onPress: () => presenter.submitBatch(batch.id) },
+      ],
+    );
+  };
+
   const confirmReopen = (batch) => {
     Alert.alert(
       'Reopen this batch?',
@@ -107,6 +118,9 @@ export default function ResultsReviewView() {
               raw: b,
             }))}
             onPressItem={(row) => {
+              if (row.raw.status === 'Draft' || row.raw.status === 'ReturnedForCorrections') {
+                confirmSubmit(row.raw);
+              }
               if (row.raw.status === 'ReadyToPublish') confirmPublish(row.raw);
               if (row.raw.status === 'Published') confirmReopen(row.raw);
             }}

@@ -26,7 +26,6 @@ export default function ImportsExportsView() {
       eyebrow="More"
       title="Bring in or download school data"
       subtitle="Students first — the same pattern later covers guardians, teachers and results."
-      insetBottom={false}
     >
       <Text style={styles.section}>Export</Text>
       <Text style={styles.bodyText}>

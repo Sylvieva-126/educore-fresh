@@ -89,6 +89,23 @@ export class ResultsReviewPresenter {
     }
   }
 
+  /** Draft / returned batches: the office re-checks them and sends for review. */
+  async submitBatch(batchId) {
+    if (this.state.busyId) return;
+    this._setState({ busyId: batchId, errorText: null });
+    try {
+      await this.model.submitBatch(batchId);
+      await this.load();
+    } catch (error) {
+      this._setState({
+        errorText:
+          error instanceof ApiError ? error.message : 'The batch could not be sent for review.',
+      });
+    } finally {
+      if (this._alive) this._setState({ busyId: null });
+    }
+  }
+
   async reopenBatch(batchId) {
     if (this.state.busyId) return;
     this._setState({ busyId: batchId, errorText: null });

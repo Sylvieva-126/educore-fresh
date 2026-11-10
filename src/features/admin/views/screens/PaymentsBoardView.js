@@ -33,6 +33,17 @@ export default function PaymentsBoardView() {
     );
   };
 
+  const confirmException = (exception) => {
+    Alert.alert(`Exception ${exception.reference}`, exception.detail, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Flag refund',
+        onPress: () => presenter.resolveException(exception, 'refund-flag'),
+      },
+      { text: 'Resolved', onPress: () => presenter.resolveException(exception, 'resolve') },
+    ]);
+  };
+
   return (
     <AdminScaffold
       eyebrow="Fees"
@@ -77,13 +88,18 @@ export default function PaymentsBoardView() {
           />
 
           <Text style={styles.section}>Exceptions</Text>
+          <Text style={styles.hint}>Tap an open exception to resolve it or flag it for refund.</Text>
           <RecordList
             items={state.exceptions.map((e) => ({
               id: e.id,
               title: `${e.reference} · ${e.amountLabel}`,
               meta: `${e.detail} · opened ${e.openedAt}`,
               status: e.status,
+              raw: e,
             }))}
+            onPressItem={(row) => {
+              if (row.raw.status === 'Open') confirmException(row.raw);
+            }}
             emptyText="No open exceptions — clean money week."
           />
         </>

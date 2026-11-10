@@ -33,6 +33,11 @@ export const ResultsModel = {
     return api.post(endpoints.results.returnBatch, { batchId }, body);
   },
 
+  /** Draft / returned batches: the office re-checks and sends for review. */
+  async submitBatch(batchId) {
+    return api.post(endpoints.results.submitBatch, { batchId });
+  },
+
   /** Publish → report cards appear in Student/Parent apps. */
   async publishBatch(batchId) {
     return api.post(endpoints.results.publishBatch, { batchId });

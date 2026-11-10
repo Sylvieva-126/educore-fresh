@@ -142,6 +142,7 @@ export const endpoints = {
     returnBatch: 'class-report-batches/{batchId}/return', // POST
     publishBatch: 'class-report-batches/{batchId}/publish', // POST
     reopenBatch: 'class-report-batches/{batchId}/reopen', // POST
+    submitBatch: 'class-report-batches/{batchId}/submit-review', // POST
     reviewIssues: 'result-review-issues', // POST
     resolveIssue: 'result-review-issues/{issueId}/resolve', // POST
   },

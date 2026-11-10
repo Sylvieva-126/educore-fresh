@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
-import { LoadingView, ErrorState } from '../components/FeedbackViews';
+import { LoadingView, EmptyState, ErrorState } from '../components/FeedbackViews';
 import { PrimaryButton } from './AdminHomeView';
 import { ConversationPresenter } from '../../presenters/ConversationPresenter';
 import { MessagesModel } from '../../models';
@@ -20,11 +20,22 @@ export default function ConversationView({ route }) {
 
   useEffect(() => {
     presenter.attach(setState);
-    presenter.load(conversationId);
+    if (conversationId) presenter.load(conversationId);
     return () => presenter.detach();
   }, [presenter, conversationId]);
 
   const c = state.conversation;
+
+  if (!conversationId) {
+    return (
+      <AdminScaffold eyebrow="Messages" title="Conversation">
+        <EmptyState
+          title="No conversation selected"
+          hint="Open a thread from School messages, or start one with the New message button there."
+        />
+      </AdminScaffold>
+    );
+  }
 
   return (
     <AdminScaffold

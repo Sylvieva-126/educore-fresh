@@ -13,16 +13,16 @@ import { ComplaintsListPresenter } from '../../presenters/ComplaintsListPresente
 import { ComplaintsModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
 
-export default function ComplaintsListView() {
+export default function ComplaintsListView({ navigation }) {
   const [presenter] = useState(() => new ComplaintsListPresenter(ComplaintsModel));
   const [state, setState] = useState(presenter.initialState);
   const [sheet, setSheet] = useState(false);
 
   useEffect(() => {
-    presenter.attach(setState);
+    presenter.attach(setState, navigation);
     presenter.load();
     return () => presenter.detach();
-  }, [presenter]);
+  }, [presenter, navigation]);
 
   const { filters } = state;
   const rows = state.complaints.map((c) => ({

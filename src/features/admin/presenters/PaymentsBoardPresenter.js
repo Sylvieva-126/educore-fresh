@@ -88,6 +88,29 @@ export class PaymentsBoardPresenter {
     }
   }
 
+  /** Resolve (or flag for refund) a webhook exception. */
+  async resolveException(exception, action = 'resolve') {
+    if (this.state.busyId) return;
+    this._setState({ busyId: exception.id, errorText: null, notice: null });
+    try {
+      await this.model.actOnException(exception.id, { action });
+      await this.load();
+      this._setState({
+        notice:
+          action === 'refund-flag'
+            ? `${exception.reference} is flagged for refund review.`
+            : `${exception.reference} is marked resolved.`,
+      });
+    } catch (error) {
+      this._setState({
+        errorText:
+          error instanceof ApiError ? error.message : 'The exception could not be updated.',
+      });
+    } finally {
+      if (this._alive) this._setState({ busyId: null });
+    }
+  }
+
   onRetry() {
     return this.load();
   }

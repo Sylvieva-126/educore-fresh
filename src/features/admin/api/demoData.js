@@ -609,6 +609,15 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     return { ok: true };
   }
 
+  // AD19 — Draft / returned batches move to ReadyToPublish on submit-review
+  if (seg[0] === 'class-report-batches' && seg[2] === 'submit-review' && m === 'POST') {
+    const batch = REPORT_BATCHES.find((b) => b.id === seg[1]);
+    if (batch && (batch.status === 'Draft' || batch.status === 'ReturnedForCorrections')) {
+      batch.status = 'ReadyToPublish';
+    }
+    return { ok: true };
+  }
+
   // AD24 — payments, settlements, reconciliation, exceptions
   if (seg[0] === 'finance' && seg[1] === 'payments' && seg.length === 2 && m === 'GET') {
     return paginate(PAYMENTS, query.page);
@@ -637,6 +646,14 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   }
   if (seg[0] === 'finance' && seg[1] === 'exceptions' && seg.length === 2 && m === 'GET') {
     return paginate(PAYMENT_EXCEPTIONS, 1, 20);
+  }
+  if (seg[0] === 'finance' && seg[1] === 'exceptions' && seg[3] === 'actions' && m === 'POST') {
+    const exception = PAYMENT_EXCEPTIONS.find((e) => e.id === seg[2]);
+    if (exception) {
+      const action = (body && body.action) || 'resolve';
+      exception.status = action === 'refund-flag' ? 'Refund flagged' : 'Resolved';
+    }
+    return { ok: true };
   }
 
   // AD31/AD32 — complaints: list, detail, replies, notes, state machine

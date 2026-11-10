@@ -3,15 +3,20 @@
  * conversation with its unread badge; opening a thread goes to AD30.
  */
 import React, { useEffect, useState } from 'react';
+import { View } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
+import SelectSheet from '../components/SelectSheet';
 import { LoadingView, EmptyState, ErrorState } from '../components/FeedbackViews';
+import { PrimaryButton } from './AdminHomeView';
 import { MessageInboxPresenter } from '../../presenters/MessageInboxPresenter';
 import { MessagesModel } from '../../models';
+import { spacing } from '../theme';
 
 export default function MessageInboxView({ navigation }) {
   const [presenter] = useState(() => new MessageInboxPresenter(MessagesModel));
   const [state, setState] = useState(presenter.initialState);
+  const [newChatSheet, setNewChatSheet] = useState(false);
 
   useEffect(() => {
     presenter.attach(setState, navigation);
@@ -45,6 +50,26 @@ export default function MessageInboxView({ navigation }) {
           emptyText="No conversations yet."
         />
       ) : null}
+
+      <View style={{ marginTop: spacing.md }}>
+        <PrimaryButton
+          label={state.starting ? 'Creating…' : 'New message'}
+          onPress={() => presenter.loadRecipients(() => setNewChatSheet(true))}
+          disabled={state.starting}
+        />
+      </View>
+
+      <SelectSheet
+        visible={newChatSheet}
+        label="Start a conversation with"
+        options={state.recipients.map((r) => ({ label: r, value: r }))}
+        value={null}
+        onSelect={(v) => {
+          setNewChatSheet(false);
+          presenter.onStartConversation(v);
+        }}
+        onClose={() => setNewChatSheet(false)}
+      />
     </AdminScaffold>
   );
 }

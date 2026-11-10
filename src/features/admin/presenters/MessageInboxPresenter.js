@@ -14,6 +14,8 @@ export class MessageInboxPresenter {
     this.initialState = {
       status: 'loading', // loading | content | empty | error
       conversations: [],
+      recipients: [], // groups the office can start a conversation with
+      starting: false,
       errorText: null,
     };
     this.state = this.initialState;
@@ -48,6 +50,42 @@ export class MessageInboxPresenter {
         status: 'error',
         errorText: error instanceof ApiError ? error.message : 'Could not load the messages.',
       });
+    }
+  }
+
+  /** Fetch recipient groups, then hand control back to the View to show the sheet. */
+  async loadRecipients(onReady) {
+    if (this.state.recipients.length > 0) {
+      if (onReady) onReady();
+      return;
+    }
+    try {
+      const result = await this.model.recipients({ page: 1 });
+      const items = Array.isArray(result) ? result : result.items || [];
+      this._setState({ recipients: items });
+      if (onReady) onReady();
+    } catch {
+      this._setState({ errorText: 'Could not load the recipient list — try again.' });
+    }
+  }
+
+  /** New message: create the conversation with the chosen group, open its thread. */
+  async onStartConversation(recipient) {
+    if (this.state.starting || !recipient) return;
+    this._setState({ starting: true });
+    try {
+      const conversation = await this.model.startConversation({ recipient });
+      await this.load();
+      if (this._navigation && conversation && conversation.id) {
+        this._navigation.navigate('Conversation', { conversationId: conversation.id });
+      }
+    } catch (error) {
+      this._setState({
+        errorText:
+          error instanceof ApiError ? error.message : 'The conversation could not be started.',
+      });
+    } finally {
+      this._setState({ starting: false });
     }
   }
 
