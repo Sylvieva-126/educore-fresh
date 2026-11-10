@@ -13,6 +13,7 @@
  */
 import React from 'react';
 import { Text, Pressable, StyleSheet } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -89,6 +90,13 @@ function MoreMenu() {
   );
 }
 
+/** Tab icon matches the tab's function — outline when idle, filled when active. */
+function tabIcon(inactive, active) {
+  return function TabBarIcon({ focused, color, size }) {
+    return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
+  };
+}
+
 function AdminTabs() {
   return (
     <Tabs.Navigator
@@ -97,15 +105,31 @@ function AdminTabs() {
         headerShown: false,
       }}
     >
-      <Tabs.Screen name="HomeTab" component={screenComponent('AD01')} options={{ title: 'Home' }} />
+      <Tabs.Screen
+        name="HomeTab"
+        component={screenComponent('AD01')}
+        options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
+      />
       <Tabs.Screen
         name="StudentsTab"
         component={screenComponent('AD02')}
-        options={{ title: 'Students' }}
+        options={{ title: 'Students', tabBarIcon: tabIcon('people-outline', 'people') }}
       />
-      <Tabs.Screen name="AcademicsTab" component={AcademicsMenu} options={{ title: 'Academics' }} />
-      <Tabs.Screen name="FeesTab" component={FeesMenu} options={{ title: 'Fees' }} />
-      <Tabs.Screen name="MoreTab" component={MoreMenu} options={{ title: 'More' }} />
+      <Tabs.Screen
+        name="AcademicsTab"
+        component={AcademicsMenu}
+        options={{ title: 'Academics', tabBarIcon: tabIcon('school-outline', 'school') }}
+      />
+      <Tabs.Screen
+        name="FeesTab"
+        component={FeesMenu}
+        options={{ title: 'Fees', tabBarIcon: tabIcon('wallet-outline', 'wallet') }}
+      />
+      <Tabs.Screen
+        name="MoreTab"
+        component={MoreMenu}
+        options={{ title: 'More', tabBarIcon: tabIcon('ellipsis-horizontal', 'ellipsis-horizontal') }}
+      />
     </Tabs.Navigator>
   );
 }

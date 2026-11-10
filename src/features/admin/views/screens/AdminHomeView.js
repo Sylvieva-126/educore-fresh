@@ -67,7 +67,7 @@ export default function AdminHomeView({ navigation }) {
             <SummaryCard
               value={a.absentStudents ?? 0}
               label="Absent students"
-              icon="people-outline"
+              icon="person-remove-outline"
               onPress={() => presenter.onViewAttendance()}
             />
             <SummaryCard
