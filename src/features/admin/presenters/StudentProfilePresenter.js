@@ -102,12 +102,14 @@ export class StudentProfilePresenter {
   }
 
   onEditStudent() {
-    if (this._navigation) this._navigation.navigate('AD03 Placeholder');
+    if (this._navigation && this._studentId) {
+      this._navigation.navigate('StudentForm', { studentId: this._studentId });
+    }
   }
 
   onViewReports() {
     if (this._navigation && this._studentId) {
-      this._navigation.navigate('AD20 Placeholder', { studentId: this._studentId });
+      this._navigation.navigate('Reports', { studentId: this._studentId });
     }
   }
 }

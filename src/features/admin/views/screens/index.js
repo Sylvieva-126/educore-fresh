@@ -1,19 +1,26 @@
 /**
  * Route registry — all 34 admin screens from the design handoff (AD01–AD34),
- * with their official titles. Five are built; the rest resolve to
- * PlaceholderScreen until the team builds them (same pattern, one at a time).
+ * with their official titles. Built screens render directly; the rest resolve
+ * to PlaceholderScreen until the team builds them (same pattern, one at a time).
  */
 import AdminHomeView from './AdminHomeView';
 import StudentListView from './StudentListView';
 import StudentProfileView from './StudentProfileView';
+import StudentFormView from './StudentFormView';
 import InvoiceListView from './InvoiceListView';
 import NoticesView from './NoticesView';
+import ImportsExportsView from './ImportsExportsView';
 import PlaceholderScreen from './PlaceholderScreen';
 
 export const ADMIN_SCREENS = {
   AD01: { name: 'AdminHome', title: 'Admin home', Component: AdminHomeView, tab: 'Home' },
   AD02: { name: 'StudentList', title: 'Student list', Component: StudentListView, tab: 'Students' },
-  AD03: { name: 'StudentForm', title: 'Register or edit a student', tab: 'Students' },
+  AD03: {
+    name: 'StudentForm',
+    title: 'Register or edit a student',
+    Component: StudentFormView,
+    tab: 'Students',
+  },
   AD04: {
     name: 'StudentProfile',
     title: 'Student profile',
@@ -48,7 +55,12 @@ export const ADMIN_SCREENS = {
   AD30: { name: 'Conversation', title: 'One private conversation', tab: 'More' },
   AD31: { name: 'ComplaintsList', title: 'Complaints list', tab: 'More' },
   AD32: { name: 'ComplaintDetail', title: 'Complaint details and resolution', tab: 'More' },
-  AD33: { name: 'ImportsExports', title: 'Bring in or download school data', tab: 'More' },
+  AD33: {
+    name: 'ImportsExports',
+    title: 'Bring in or download school data',
+    Component: ImportsExportsView,
+    tab: 'More',
+  },
   AD34: { name: 'AuditTrail', title: 'School change history', tab: 'More' },
 };
 

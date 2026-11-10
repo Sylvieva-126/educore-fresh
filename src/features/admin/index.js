@@ -151,6 +151,19 @@ export function AdminNavigator() {
           options={{ title: entry.title }}
         />
       ))}
+      {/* Safety net: older presenters navigate to "ADxx Placeholder" names.
+          Registering those names for the not-yet-built screens means a stale
+          call lands on the recipe page instead of dying with a console error. */}
+      {Object.entries(ADMIN_SCREENS)
+        .filter(([, entry]) => !entry.Component)
+        .map(([code, entry]) => (
+          <Stack.Screen
+            key={`${code}-placeholder-alias`}
+            name={`${code} Placeholder`}
+            component={screenComponent(code)}
+            options={{ title: entry.title }}
+          />
+        ))}
     </Stack.Navigator>
   );
 }

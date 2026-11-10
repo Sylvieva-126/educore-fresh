@@ -41,6 +41,7 @@ export default function InvoiceListView({ navigation }) {
       eyebrow="Fees"
       title="Student invoices"
       subtitle="Every bill issued for this school."
+      insetBottom={false}
     >
       <TextInput
         style={styles.search}

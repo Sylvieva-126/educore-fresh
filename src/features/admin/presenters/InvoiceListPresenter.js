@@ -68,7 +68,7 @@ export class InvoiceListPresenter {
   }
 
   onOpenInvoice(invoice) {
-    if (this._navigation) this._navigation.navigate('AD23 Placeholder', { invoiceId: invoice.id });
+    if (this._navigation) this._navigation.navigate('InvoiceDetail', { invoiceId: invoice.id });
   }
 
   async _fetch({ showLoading, append = false, page = 1 }) {

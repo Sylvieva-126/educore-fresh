@@ -237,6 +237,11 @@ function todayLabel() {
   return new Date().toISOString().slice(0, 10);
 }
 
+/* Records created in demo mode (AD03 enrol + AD33 import) — counters follow
+   the seeded admission numbers (…0151 is the last seed). */
+let nextStudentId = 13;
+let nextAdmissionNumber = 152;
+
 export async function demoRequest({ path: route, method = 'GET', query = {}, body = null }) {
   await new Promise((resolve) => setTimeout(resolve, 250)); // let loading states show
   const m = String(method || 'GET').toUpperCase();
@@ -244,6 +249,35 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
 
   // AD01 — dashboard
   if (seg[0] === 'dashboard' && m === 'GET') return DASHBOARD;
+
+  // AD03/AD33 — enrol one student (the import loop reuses this same route)
+  if (seg[0] === 'student-enrolments' && m === 'POST') {
+    const cls = (body && body.classLabel) || 'JSS1 A';
+    const student = {
+      id: nextStudentId,
+      fullName: `${(body && body.firstName) || ''} ${(body && body.lastName) || ''}`.trim(),
+      admissionNumber: `GSS/2026/${String(nextAdmissionNumber).padStart(4, '0')}`,
+      classLabel: cls,
+      department: cls.startsWith('JSS') ? null : (body && body.department) || null,
+      status: 'Active',
+      dateOfBirth: (body && body.dateOfBirth) || '',
+      gender: (body && body.gender) || '',
+      admissionDate: todayLabel(),
+      guardianName: (body && body.guardianName) || '',
+      guardianPhone: (body && body.guardianPhone) || '',
+      guardianEmail: (body && body.guardianEmail) || '',
+      address: (body && body.address) || '',
+    };
+    nextStudentId += 1;
+    nextAdmissionNumber += 1;
+    STUDENTS.push(student);
+    return student;
+  }
+
+  // AD02/AD20/AD33 — export acknowledgement (the CSV itself is built on-device)
+  if (seg[0] === 'exports' && m === 'POST') {
+    return { ok: true, type: (body && body.type) || 'unknown', rowCount: STUDENTS.length };
+  }
 
   // AD02/AD03/AD04 — students
   if (seg[0] === 'students') {
@@ -254,6 +288,28 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     const student = findStudent(seg[1]);
     if (seg.length === 2) {
       if (m === 'GET') return student || STUDENTS[0];
+      if (m === 'PATCH' && student) {
+        // AD03 — edit core details
+        const b = body || {};
+        if (b.firstName || b.lastName) {
+          const oldParts = String(student.fullName || '').split(' ');
+          student.fullName = `${b.firstName || oldParts[0] || ''} ${
+            b.lastName || oldParts.slice(1).join(' ') || ''
+          }`.trim();
+        }
+        ['gender', 'dateOfBirth', 'guardianName', 'guardianPhone', 'guardianEmail', 'address'].forEach(
+          (key) => {
+            if (b[key] !== undefined) student[key] = b[key];
+          },
+        );
+        if (b.classLabel) {
+          student.classLabel = b.classLabel;
+          student.department = b.classLabel.startsWith('JSS') ? null : b.department || student.department;
+        } else if (b.department !== undefined) {
+          student.department = b.department;
+        }
+        return student;
+      }
       return { ok: true };
     }
     if (seg[2] === 'enrolments' && m === 'GET') return enrolmentsFor(seg[1]);

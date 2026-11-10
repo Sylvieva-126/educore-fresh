@@ -58,25 +58,25 @@ export class DashboardPresenter {
 
   /** Each count on the home screen opens the list it came from. */
   onViewAttendance() {
-    if (this._navigation) this._navigation.navigate('AD16 Placeholder');
+    if (this._navigation) this._navigation.navigate('AttendanceOverview');
   }
 
   onOpenAttention(item) {
     if (!this._navigation) return;
     const routeByType = {
-      results: 'AD19 Placeholder',
-      payment: 'AD24 Placeholder',
-      complaint: 'AD31 Placeholder',
+      results: 'ResultsReview',
+      payment: 'PaymentsBoard',
+      complaint: 'ComplaintsList',
     };
-    this._navigation.navigate(routeByType[item.type] || 'AD16 Placeholder');
+    this._navigation.navigate(routeByType[item.type] || 'AttendanceOverview');
   }
 
   onEnrolStudent() {
-    if (this._navigation) this._navigation.navigate('AD03 Placeholder');
+    if (this._navigation) this._navigation.navigate('StudentForm');
   }
 
   onViewCalendar() {
-    if (this._navigation) this._navigation.navigate('AD11 Placeholder');
+    if (this._navigation) this._navigation.navigate('Calendar');
   }
 }
 

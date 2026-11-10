@@ -4,7 +4,7 @@ import { Text, Pressable, StyleSheet } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, typography, spacing, touchTarget } from '../theme';
 
-export default function SummaryCard({ value, label, onPress, tone, icon }) {
+export default function SummaryCard({ value, label, onPress, tone, icon, style }) {
   return (
     <Pressable
       onPress={onPress}
@@ -13,6 +13,7 @@ export default function SummaryCard({ value, label, onPress, tone, icon }) {
         styles.card,
         tone ? { backgroundColor: tone } : null,
         pressed && { opacity: 0.8 },
+        style,
       ]}
     >
       {icon ? <Ionicons name={icon} size={18} color={colors.primary} style={styles.icon} /> : null}

@@ -25,6 +25,12 @@ export const StudentModel = {
     return { ...page, items: page.items.map(toListItem) };
   },
 
+  /** AD02/AD33 , raw rows (guardian, DOB…) for CSV export and import checks. */
+  async listFull(filters = {}) {
+    const payload = await api.get(endpoints.students.list, null, filters);
+    return normalizePage(payload);
+  },
+
   /** AD03 , the enrolment form definition (fields + options for this school). */
   async enrolmentForm() {
     return api.get(endpoints.students.enrolmentForm);

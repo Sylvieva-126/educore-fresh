@@ -42,6 +42,7 @@ export default function NoticesView({ navigation }) {
       eyebrow="Messages"
       title="School announcements"
       subtitle="Publish notices families and staff will see."
+      insetBottom={false}
     >
       {state.status === 'loading' ? <LoadingView /> : null}
       {state.status === 'error' ? (

@@ -25,7 +25,15 @@ export function RecordRow({ title, meta, status, onPress }) {
           </Text>
         ) : null}
       </View>
-      {status ? <StatusBadge label={status} tone={statusTone[status] || 'muted'} /> : null}
+      {/* alignSelf center overrides the badge's flex-start so the tag sits
+          in the vertical middle of the row instead of hugging the top. */}
+      {status ? (
+        <StatusBadge
+          label={status}
+          tone={statusTone[status] || 'muted'}
+          style={styles.statusBadge}
+        />
+      ) : null}
       <Text style={styles.chevron}>›</Text>
     </Pressable>
   );
@@ -68,6 +76,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   rowMain: { flex: 1 },
+  statusBadge: { alignSelf: 'center' },
   rowTitle: { ...typography.body, fontWeight: '600' },
   rowMeta: { ...typography.label, marginTop: 2 },
   chevron: { ...typography.title, color: colors.muted },

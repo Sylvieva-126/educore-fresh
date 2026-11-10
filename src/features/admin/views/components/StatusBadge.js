@@ -14,9 +14,11 @@ const toneBackground = {
   muted: colors.border,
 };
 
-export default function StatusBadge({ label, tone = 'muted' }) {
+export default function StatusBadge({ label, tone = 'muted', style }) {
   return (
-    <View style={[styles.badge, { backgroundColor: toneBackground[tone] || colors.border }]}>
+    <View
+      style={[styles.badge, { backgroundColor: toneBackground[tone] || colors.border }, style]}
+    >
       <Text style={styles.label}>{String(label)}</Text>
     </View>
   );

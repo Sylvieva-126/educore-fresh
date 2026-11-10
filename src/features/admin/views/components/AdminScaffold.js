@@ -15,10 +15,11 @@ export default function AdminScaffold({
   title,
   subtitle,
   actions = null,
+  insetBottom = true, // false for screens inside the tab bar (it owns the bottom inset)
   children,
 }) {
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={insetBottom ? ['top', 'bottom'] : ['top']}>
       <View style={styles.context}>
         <Text style={styles.contextTop}>{contextTop}</Text>
         <Text style={styles.contextBottom}>{contextBottom}</Text>

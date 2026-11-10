@@ -30,6 +30,7 @@ export default function AdminHomeView({ navigation }) {
       eyebrow="Home"
       title="Admin home"
       subtitle="A clear view of today."
+      insetBottom={false}
       actions={
         <>
           <PrimaryButton label="Enrol student" onPress={() => presenter.onEnrolStudent()} />
@@ -51,29 +52,35 @@ export default function AdminHomeView({ navigation }) {
       {state.status === 'content' ? (
         <>
           <Text style={styles.section}>Attendance</Text>
+          {/* flexBasis caps the row at three tiles — four cards wrap to a
+              second row instead of squeezing into one. */}
           <View style={styles.grid}>
             <SummaryCard
               value={`${a.registersSubmitted ?? 0} / ${a.registersExpected ?? 0}`}
               label="Registers submitted"
               icon="checkmark-circle-outline"
+              style={styles.card}
               onPress={() => presenter.onViewAttendance()}
             />
             <SummaryCard
               value={a.missingRegisters ?? 0}
               label="Missing register"
               icon="alert-circle-outline"
+              style={styles.card}
               onPress={() => presenter.onViewAttendance()}
             />
             <SummaryCard
               value={a.absentStudents ?? 0}
               label="Absent students"
               icon="person-remove-outline"
+              style={styles.card}
               onPress={() => presenter.onViewAttendance()}
             />
             <SummaryCard
               value={a.lateArrivals ?? 0}
               label="Late arrivals"
               icon="time-outline"
+              style={styles.card}
               onPress={() => presenter.onViewAttendance()}
             />
           </View>
@@ -143,6 +150,7 @@ const styles = StyleSheet.create({
   date: { ...typography.label, marginBottom: spacing.md },
   section: { ...typography.sectionTitle, marginTop: spacing.lg, marginBottom: spacing.sm },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  card: { flexGrow: 0, flexBasis: '31%' },
   hint: { ...typography.label, marginTop: spacing.sm },
   primary: {
     ...touchTarget,

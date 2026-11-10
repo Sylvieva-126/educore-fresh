@@ -1,11 +1,17 @@
 /**
  * AD04 — Student profile (View). Renders the profile sections and forwards
- * the two guarded actions (class move, withdrawal) to the Presenter.
+ * the guarded actions (class move, withdrawal) to the Presenter. The
+ * double-confirm dialogs live here in the View, per the handoff.
+ *
+ * Note: no inner ScrollView — AdminScaffold already provides the scrollable
+ * body; a nested same-direction ScrollView is what clipped the enrolment
+ * lines on Android.
  */
-import React, { useEffect, useState } from 'react';
-import { Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import StatusBadge from '../components/StatusBadge';
+import SelectSheet from '../components/SelectSheet';
 import LabelledField from '../components/LabelledField';
 import { LoadingView, ErrorState } from '../components/FeedbackViews';
 import { PrimaryButton, SecondaryButton } from './AdminHomeView';
@@ -13,17 +19,49 @@ import { StudentProfilePresenter } from '../../presenters/StudentProfilePresente
 import { StudentModel } from '../../models';
 import { colors, typography, spacing, statusTone } from '../theme';
 
+const CLASSES = ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A', 'SSS1 A', 'SSS2 A', 'SSS3 A'];
+
 export default function StudentProfileView({ route, navigation }) {
   const [presenter] = useState(() => new StudentProfilePresenter(StudentModel));
   const [state, setState] = useState(presenter.initialState);
+  const [classSheet, setClassSheet] = useState(false);
+  const [targetClass, setTargetClass] = useState(null);
+  const loadedOnce = useRef(false);
 
   useEffect(() => {
     presenter.attach(setState, navigation);
     presenter.load(route.params.studentId);
-    return () => presenter.detach();
+    // Coming back from Edit student (AD03) the header may have changed;
+    // re-fetch on every focus after the first so the profile is never stale.
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (loadedOnce.current) presenter.load(route.params.studentId);
+      loadedOnce.current = true;
+    });
+    return () => {
+      unsubscribe?.remove?.();
+      presenter.detach();
+    };
   }, [presenter, navigation, route.params]);
 
   const s = state.student;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const confirmWithdrawal = () => {
+    Alert.alert(
+      'Withdraw this student?',
+      `${
+        s ? s.name : 'This student'
+      } will be marked Withdrawn from ${today}. The student list shows them again under the Withdrawn filter.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Withdraw',
+          style: 'destructive',
+          onPress: () => presenter.confirmWithdrawal('Withdrawn by admin', today),
+        },
+      ],
+    );
+  };
 
   return (
     <AdminScaffold
@@ -37,7 +75,7 @@ export default function StudentProfileView({ route, navigation }) {
       ) : null}
 
       {state.status === 'content' && s ? (
-        <ScrollView>
+        <View>
           <StatusBadge label={s.status} tone={statusTone[s.status] || 'muted'} />
 
           <Text style={styles.section}>Enrolments</Text>
@@ -61,10 +99,8 @@ export default function StudentProfileView({ route, navigation }) {
           <LabelledField
             label="New class"
             placeholder="Choose the class to move to"
-            displayValue={state.classMoveTarget || ''}
-            onPress={() => {
-              /* open class SelectSheet wired to presenter.confirmClassMove */
-            }}
+            displayValue={targetClass || ''}
+            onPress={() => setClassSheet(true)}
           />
           {state.classMoveError ? <Text style={styles.error}>{state.classMoveError}</Text> : null}
           <SecondaryButton
@@ -75,14 +111,12 @@ export default function StudentProfileView({ route, navigation }) {
                   ? 'Class move accepted'
                   : 'Request class move'
             }
-            disabled={state.classMoveState === 'saving'}
+            disabled={state.classMoveState === 'saving' || !targetClass}
+            onPress={() => presenter.confirmClassMove(targetClass, today)}
           />
 
           <Text style={styles.section}>Withdraw student</Text>
           {state.withdrawalError ? <Text style={styles.error}>{state.withdrawalError}</Text> : null}
-          {/* Wire to presenter.confirmWithdrawal(reason, effectiveDate) once the
-              confirmation sheet (AD04 design) is built. Never call it directly
-              without the double-confirm step. */}
           <PrimaryButton
             label={
               state.withdrawalState === 'saving'
@@ -92,13 +126,26 @@ export default function StudentProfileView({ route, navigation }) {
                   : 'Withdraw this student'
             }
             disabled={state.withdrawalState === 'saving'}
+            onPress={confirmWithdrawal}
           />
 
           <Text style={styles.section}>More</Text>
-          <SecondaryButton label="View reports" onPress={() => presenter.onViewReports()} />
-          <SecondaryButton label="Edit student" onPress={() => presenter.onEditStudent()} />
-        </ScrollView>
+          {/* The gap stops "View reports" and "Edit student" from touching. */}
+          <View style={styles.moreButtons}>
+            <SecondaryButton label="View reports" onPress={() => presenter.onViewReports()} />
+            <SecondaryButton label="Edit student" onPress={() => presenter.onEditStudent()} />
+          </View>
+        </View>
       ) : null}
+
+      <SelectSheet
+        visible={classSheet}
+        label="Move to class"
+        options={CLASSES.map((c) => ({ label: c, value: c }))}
+        value={targetClass}
+        onSelect={(v) => setTargetClass(v)}
+        onClose={() => setClassSheet(false)}
+      />
     </AdminScaffold>
   );
 }
@@ -108,4 +155,5 @@ const styles = StyleSheet.create({
   line: { ...typography.body, marginBottom: spacing.xs },
   muted: { ...typography.body, color: colors.muted },
   error: { ...typography.label, color: '#a33a2a', marginBottom: spacing.sm },
+  moreButtons: { gap: spacing.sm, marginTop: spacing.xs },
 });

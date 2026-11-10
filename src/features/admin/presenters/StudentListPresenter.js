@@ -13,8 +13,24 @@
  * React. This file is the only place that decides WHAT the screen shows.
  */
 import { ApiError } from '../api/client';
+import { toCsv, shareOrCopyCsv } from '../api/csv';
 
 const SEARCH_DEBOUNCE_MS = 350;
+
+// Export columns cover the whole demo record; the live Java API returns the
+// same fields for GET /students (guardian + DOB included).
+const EXPORT_COLUMNS = [
+  { key: 'admissionNumber', header: 'admissionNumber' },
+  { key: 'fullName', header: 'fullName' },
+  { key: 'classLabel', header: 'class' },
+  { key: 'department', header: 'department' },
+  { key: 'gender', header: 'gender' },
+  { key: 'dateOfBirth', header: 'dateOfBirth' },
+  { key: 'status', header: 'status' },
+  { key: 'guardianName', header: 'guardianName' },
+  { key: 'guardianPhone', header: 'guardianPhone' },
+  { key: 'guardianEmail', header: 'guardianEmail' },
+];
 
 export class StudentListPresenter {
   constructor(studentModel) {
@@ -39,6 +55,7 @@ export class StudentListPresenter {
         status: 'Active',
       },
       exporting: false,
+      exportNotice: null,
     };
     this.state = this.initialState;
   }
@@ -143,17 +160,39 @@ export class StudentListPresenter {
   }
 
   onEnrolStudent() {
-    if (this._navigation) this._navigation.navigate('AD03 Placeholder');
+    if (this._navigation) this._navigation.navigate('StudentForm');
   }
 
+  /**
+   * Export the CURRENT filtered list as CSV and hand it to the share sheet.
+   * Uses the raw student rows (guardian, DOB…) rather than the display cards.
+   */
   async onExport() {
-    this._setState({ exporting: true });
+    this._setState({ exporting: true, exportNotice: null });
     try {
-      await this.model.exportFiltered(this.state.filters);
+      const f = this.state.filters;
+      const page = await this.model.listFull({
+        q: f.search || undefined,
+        session: f.session,
+        classId: f.classId === 'all' ? undefined : f.classId,
+        department: f.department === 'all' ? undefined : f.department,
+        status: f.status === 'all' ? undefined : f.status,
+        page: 1,
+      });
+      const rows = page.items || [];
+      if (rows.length === 0) {
+        this._setState({
+          exportNotice: 'Nothing to export — the current filters match no students.',
+        });
+        return;
+      }
+      const csv = toCsv(rows, EXPORT_COLUMNS);
+      const notice = await shareOrCopyCsv('students.csv', csv);
+      this._setState({ exportNotice: `${notice} (${rows.length} students)` });
     } catch {
-      // The View shows a non-blocking failure; the list itself is unaffected.
+      this._setState({ exportNotice: 'The export failed — try again in a moment.' });
     } finally {
-      this._setState({ exporting: false });
+      if (this._alive) this._setState({ exporting: false });
     }
   }
 }

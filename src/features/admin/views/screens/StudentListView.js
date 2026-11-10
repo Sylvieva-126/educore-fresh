@@ -5,8 +5,8 @@
  * lives in StudentListPresenter. The View only renders `state` and calls
  * `presenter.on*()` when the user does something.
  */
-import React, { useEffect, useState } from 'react';
-import { View, TextInput, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, TextInput, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import SelectSheet from '../components/SelectSheet';
@@ -29,16 +29,30 @@ const DEPARTMENTS = ['Science', 'Humanities / Arts', 'Business / Commercial']
 const STATUSES = ['Active', 'Withdrawn', 'Completed']
   .map((s) => ({ label: s, value: s }))
   .concat([{ label: 'All statuses', value: 'all' }]);
+const IMPORT_EXPORT_OPTIONS = [
+  { label: 'Export the current list (CSV)', value: 'export' },
+  { label: 'Import students (paste CSV)', value: 'import' },
+];
 
 export default function StudentListView({ navigation }) {
   const [presenter] = useState(() => new StudentListPresenter(StudentModel));
   const [state, setState] = useState(presenter.initialState);
   const [sheet, setSheet] = useState(null); // which SelectSheet is open
+  const loadedOnce = useRef(false);
 
   useEffect(() => {
     presenter.attach(setState, navigation);
     presenter.load();
-    return () => presenter.detach();
+    // When the user comes back from enrol (AD03) or import (AD33) the list
+    // must show the new students, so re-fetch on every focus after the first.
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (loadedOnce.current) presenter.load();
+      loadedOnce.current = true;
+    });
+    return () => {
+      unsubscribe?.remove?.();
+      presenter.detach();
+    };
   }, [presenter, navigation]);
 
   const { filters } = state;
@@ -57,13 +71,15 @@ export default function StudentListView({ navigation }) {
       eyebrow="Students"
       title="Student list"
       subtitle="Find a student or begin an enrolment."
+      insetBottom={false}
       actions={
         <View style={{ gap: spacing.sm }}>
           <PrimaryActions
             onEnrol={() => presenter.onEnrolStudent()}
-            onExport={() => presenter.onExport()}
+            onImportExport={() => setSheet('import-export')}
             exporting={state.exporting}
           />
+          {state.exportNotice ? <Text style={styles.notice}>{state.exportNotice}</Text> : null}
         </View>
       }
     >
@@ -148,17 +164,28 @@ export default function StudentListView({ navigation }) {
         onSelect={(v) => presenter.onFilterChange('status', v)}
         onClose={() => setSheet(null)}
       />
+      <SelectSheet
+        visible={sheet === 'import-export'}
+        label="Import / export students"
+        options={IMPORT_EXPORT_OPTIONS}
+        value={null}
+        onSelect={(v) => {
+          if (v === 'export') presenter.onExport();
+          if (v === 'import') navigation.navigate('ImportsExports', { type: 'students' });
+        }}
+        onClose={() => setSheet(null)}
+      />
     </AdminScaffold>
   );
 }
 
-function PrimaryActions({ onEnrol, onExport, exporting }) {
+function PrimaryActions({ onEnrol, onImportExport, exporting }) {
   return (
     <>
       <PrimaryButton label="Enrol student" onPress={onEnrol} />
       <SecondaryButton
         label={exporting ? 'Preparing export…' : 'Import / export students'}
-        onPress={onExport}
+        onPress={onImportExport}
         disabled={exporting}
       />
     </>
@@ -176,4 +203,5 @@ const styles = StyleSheet.create({
     minHeight: 44,
     marginBottom: spacing.md,
   },
+  notice: { ...typography.label, color: colors.muted, textAlign: 'center' },
 });
