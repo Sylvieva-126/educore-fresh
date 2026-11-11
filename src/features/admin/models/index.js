@@ -15,6 +15,7 @@ export { AssessmentModel } from './AssessmentModel';
 export { ResultsModel } from './ResultsModel';
 export { ReportsModel } from './ReportsModel';
 export { FinanceModel } from './FinanceModel';
+export { FeePlanModel } from './FeePlanModel';
 export { PromotionModel } from './PromotionModel';
 export { NoticesModel } from './NoticesModel';
 export { MessagesModel } from './MessagesModel';

@@ -52,7 +52,7 @@ export class StudentListPresenter {
         session: '2026/2027',
         classId: 'all',
         department: 'all',
-        status: 'Active',
+        status: 'all', // show withdrawn/graduated too — the badge tells them apart
       },
       exporting: false,
       exportNotice: null,
