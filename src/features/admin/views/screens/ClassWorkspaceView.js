@@ -49,8 +49,8 @@ export default function ClassWorkspaceView({ navigation, route }) {
   const subjectRows = state.subjects.map((s) => ({
     id: s.id,
     title: s.name,
-    meta: s.department,
-    status: s.department,
+    meta: (s.departments || [s.department]).join(' · '),
+    status: (s.departments || [s.department])[0],
   }));
 
   return (

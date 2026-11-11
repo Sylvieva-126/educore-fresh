@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Text, Alert, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
-import { LoadingView, ErrorState } from '../components/FeedbackViews';
+import { LoadingView, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import { ResultsReviewPresenter } from '../../presenters/ResultsReviewPresenter';
 import { ResultsModel } from '../../models';
 import { typography, spacing } from '../theme';
@@ -80,6 +80,9 @@ export default function ResultsReviewView({ navigation }) {
     );
   };
 
+  // Publish/reopen guard refusals pop up instead of inline text.
+  useActionErrorAlert(state.errorText);
+
   return (
     <AdminScaffold
       eyebrow="Academics"
@@ -93,7 +96,6 @@ export default function ResultsReviewView({ navigation }) {
 
       {state.status === 'content' ? (
         <>
-          {state.errorText ? <Text style={styles.error}>{state.errorText}</Text> : null}
 
           <Text style={styles.section}>Mark packages</Text>
           <Text style={styles.hint}>

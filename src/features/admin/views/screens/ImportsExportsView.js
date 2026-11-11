@@ -8,6 +8,7 @@ import { Text, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import LabelledField from '../components/LabelledField';
 import { PrimaryButton, SecondaryButton } from './AdminHomeView';
+import { useActionErrorAlert } from '../components/FeedbackViews';
 import { ImportsExportsPresenter, IMPORT_CSV_HEADER } from '../../presenters/ImportsExportsPresenter';
 import { StudentModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
@@ -20,6 +21,9 @@ export default function ImportsExportsView() {
     presenter.attach(setState);
     return () => presenter.detach();
   }, [presenter]);
+
+  // Import/export failures pop up; per-row problems stay listed inline.
+  useActionErrorAlert(state.errorText, 'Import failed');
 
   return (
     <AdminScaffold
@@ -59,7 +63,6 @@ export default function ImportsExportsView() {
           Row {p.rowNumber}: {p.problem}
         </Text>
       ))}
-      {state.errorText ? <Text style={styles.problem}>{state.errorText}</Text> : null}
       <PrimaryButton
         label={
           state.importing

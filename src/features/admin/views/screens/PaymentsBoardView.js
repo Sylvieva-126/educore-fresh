@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Text, Alert, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
-import { LoadingView, ErrorState } from '../components/FeedbackViews';
+import { LoadingView, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import { PaymentsBoardPresenter } from '../../presenters/PaymentsBoardPresenter';
 import { FinanceModel } from '../../models';
 import { typography, spacing } from '../theme';
@@ -54,6 +54,9 @@ export default function PaymentsBoardView({ navigation }) {
     ]);
   };
 
+  // Match failures and guard refusals pop up.
+  useActionErrorAlert(state.errorText);
+
   return (
     <AdminScaffold
       eyebrow="Fees"
@@ -68,7 +71,6 @@ export default function PaymentsBoardView({ navigation }) {
       {state.status === 'content' ? (
         <>
           {state.notice ? <Text style={styles.notice}>{state.notice}</Text> : null}
-          {state.errorText ? <Text style={styles.error}>{state.errorText}</Text> : null}
 
           <Text style={styles.section}>Paystack settlements</Text>
           <Text style={styles.hint}>Tap an unmatched settlement to reconcile it to its invoice.</Text>

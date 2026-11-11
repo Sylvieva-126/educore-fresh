@@ -9,6 +9,7 @@ import AdminScaffold from '../components/AdminScaffold';
 import SelectSheet from '../components/SelectSheet';
 import LabelledField from '../components/LabelledField';
 import { PrimaryButton } from './AdminHomeView';
+import { useActionErrorAlert } from '../components/FeedbackViews';
 import { StudentFormPresenter } from '../../presenters/StudentFormPresenter';
 import { StudentModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
@@ -39,6 +40,9 @@ export default function StudentFormView({ route, navigation }) {
   const isSaving = state.status === 'saving';
   const isAccepted = state.status === 'accepted';
 
+  // Save failures pop up; field-level validation stays inline under fields.
+  useActionErrorAlert(state.errorText, 'Student not saved');
+
   return (
     <AdminScaffold
       eyebrow="Students"
@@ -49,8 +53,6 @@ export default function StudentFormView({ route, navigation }) {
           : 'The school server creates the admission number and the accounts.'
       }
     >
-      {state.errorText ? <Text style={styles.formError}>{state.errorText}</Text> : null}
-
       <Text style={styles.section}>Student</Text>
       <View style={styles.row}>
         <View style={styles.half}>

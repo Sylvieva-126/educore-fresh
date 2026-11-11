@@ -13,6 +13,8 @@ import TeacherProfileView from './TeacherProfileView';
 import FeePlansView from './FeePlansView';
 import AcademicStructureView from './AcademicStructureView';
 import ClassWorkspaceView from './ClassWorkspaceView';
+import TimetableBuilderView from './TimetableBuilderView';
+import TimetablePublishView from './TimetablePublishView';
 import StudentFormView from './StudentFormView';
 import InvoiceListView from './InvoiceListView';
 import InvoiceDetailView from './InvoiceDetailView';
@@ -88,8 +90,18 @@ export const ADMIN_SCREENS = {
     Component: ClassWorkspaceView,
     tab: 'Academics',
   },
-  AD14: { name: 'TimetableBuilder', title: 'Build the weekly timetable', tab: 'Academics' },
-  AD15: { name: 'TimetablePublish', title: 'Review and publish the timetable', tab: 'Academics' },
+  AD14: {
+    name: 'TimetableBuilder',
+    title: 'Build the weekly timetable',
+    Component: TimetableBuilderView,
+    tab: 'Academics',
+  },
+  AD15: {
+    name: 'TimetablePublish',
+    title: 'Review and publish the timetable',
+    Component: TimetablePublishView,
+    tab: 'Academics',
+  },
   AD16: {
     name: 'AttendanceOverview',
     title: 'Attendance and absence follow-up',

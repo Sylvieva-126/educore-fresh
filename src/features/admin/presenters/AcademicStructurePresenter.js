@@ -64,21 +64,30 @@ export class AcademicStructurePresenter {
     return this.load();
   }
 
-  /** Add a subject to the school's subject list. */
+  /** Add a subject with its department tags and the classes it is taught in. */
   async addSubject(fields) {
     if (this.state.savingSubject) return;
     if (!fields.name || !fields.name.trim()) {
       this._setState({ notice: null, errorText: 'Name the subject.' });
       return;
     }
-    if (!fields.department) {
-      this._setState({ notice: null, errorText: 'Tag the department it belongs to.' });
+    const departments = Array.isArray(fields.departments) ? fields.departments : [];
+    if (departments.length === 0) {
+      this._setState({ notice: null, errorText: 'Tag at least one department it belongs to.' });
       return;
     }
+    const classes = Array.isArray(fields.classes) ? fields.classes : [];
     this._setState({ savingSubject: true, notice: null, errorText: null });
     try {
-      await this.model.createSubject(fields);
-      this._setState({ savingSubject: false, notice: 'Subject added to the list.' });
+      await this.model.createSubject({ name: fields.name, departments, classes });
+      this._setState({
+        savingSubject: false,
+        notice:
+          'Subject added' +
+          (classes.length > 0
+            ? ` — taught in ${classes.length} class${classes.length === 1 ? '' : 'es'}.`
+            : ' — assign its classes from the class workspaces later.'),
+      });
       await this.load({ showLoading: false });
     } catch (error) {
       this._setState({

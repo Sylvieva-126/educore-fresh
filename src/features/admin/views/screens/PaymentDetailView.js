@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import StatusBadge from '../components/StatusBadge';
-import { LoadingView, EmptyState, ErrorState } from '../components/FeedbackViews';
+import { LoadingView, EmptyState, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import { PrimaryButton, SecondaryButton } from './AdminHomeView';
 import { PaymentDetailPresenter } from '../../presenters/PaymentDetailPresenter';
 import { FinanceModel } from '../../models';
@@ -63,6 +63,9 @@ export default function PaymentDetailView({ route, navigation }) {
     );
   };
 
+  // Refund guard refusals pop up instead of inline text.
+  useActionErrorAlert(state.errorText);
+
   if (!paymentId) {
     return (
       <AdminScaffold eyebrow="Fees" title="Payment detail">
@@ -100,7 +103,6 @@ export default function PaymentDetailView({ route, navigation }) {
 
           <Text style={styles.section}>Refund requests on this payment</Text>
           {state.notice ? <Text style={styles.notice}>{state.notice}</Text> : null}
-          {state.errorText ? <Text style={styles.error}>{state.errorText}</Text> : null}
           {state.refunds.length === 0 ? (
             <Text style={styles.muted}>No refund requests yet.</Text>
           ) : (

@@ -13,7 +13,7 @@ import AdminScaffold from '../components/AdminScaffold';
 import StatusBadge from '../components/StatusBadge';
 import SelectSheet from '../components/SelectSheet';
 import LabelledField from '../components/LabelledField';
-import { LoadingView, ErrorState } from '../components/FeedbackViews';
+import { LoadingView, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import { PrimaryButton, SecondaryButton } from './AdminHomeView';
 import { StudentProfilePresenter } from '../../presenters/StudentProfilePresenter';
 import { StudentModel } from '../../models';
@@ -42,6 +42,9 @@ export default function StudentProfileView({ route, navigation }) {
       presenter.detach();
     };
   }, [presenter, navigation, route.params]);
+
+  // Withdraw/class-move refusals pop up — they were invisible before.
+  useActionErrorAlert(state.withdrawalError, 'Withdrawal not accepted');
 
   const s = state.student;
   const today = new Date().toISOString().slice(0, 10);

@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import StatusBadge from '../components/StatusBadge';
-import { LoadingView, ErrorState } from '../components/FeedbackViews';
+import { LoadingView, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import { PrimaryButton, SecondaryButton } from './AdminHomeView';
 import { ComplaintDetailPresenter } from '../../presenters/ComplaintDetailPresenter';
 import { ComplaintsModel } from '../../models';
@@ -44,6 +44,9 @@ export default function ComplaintDetailView({ route, navigation }) {
       { text: 'Close case', style: 'destructive', onPress: () => presenter.onStateAction('close') },
     ]);
   };
+
+  // State-machine refusals pop up instead of inline text.
+  useActionErrorAlert(state.errorText);
 
   if (!caseId) {
     return (
@@ -149,7 +152,6 @@ export default function ComplaintDetailView({ route, navigation }) {
           </View>
 
           <Text style={styles.section}>Move this case</Text>
-          {state.errorText ? <Text style={styles.error}>{state.errorText}</Text> : null}
           <View style={styles.actions}>
             <SecondaryButton
               label={state.saving === 'start-review' ? 'Saving…' : 'Start review'}

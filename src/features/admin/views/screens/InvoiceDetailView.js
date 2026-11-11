@@ -9,7 +9,7 @@ import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import StatusBadge from '../components/StatusBadge';
 import SelectSheet from '../components/SelectSheet';
-import { LoadingView, EmptyState, ErrorState } from '../components/FeedbackViews';
+import { LoadingView, EmptyState, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import { PrimaryButton } from './AdminHomeView';
 import { InvoiceDetailPresenter } from '../../presenters/InvoiceDetailPresenter';
 import { FinanceModel } from '../../models';
@@ -64,6 +64,9 @@ export default function InvoiceDetailView({ route, navigation }) {
     );
   };
 
+  // Payment validation errors pop up instead of inline text.
+  useActionErrorAlert(state.errorText);
+
   if (!invoiceId) {
     return (
       <AdminScaffold eyebrow="Fees" title="Invoice">
@@ -109,7 +112,6 @@ export default function InvoiceDetailView({ route, navigation }) {
           <Text style={styles.section}>Record an office payment</Text>
           <Text style={styles.hint}>Cash, transfer or POS paid at the school office.</Text>
           {state.notice ? <Text style={styles.notice}>{state.notice}</Text> : null}
-          {state.errorText ? <Text style={styles.error}>{state.errorText}</Text> : null}
 
           <Text style={styles.fieldLabel}>Amount (₦)</Text>
           <TextInput

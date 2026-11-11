@@ -330,18 +330,18 @@ const SSS_DEPARTMENTS = {
   'SSS3 A': 'Science',
 };
 const SUBJECTS = [
-  { id: 'sub-1', name: 'Mathematics', department: 'Core', classes: CLASS_NAMES.slice() },
-  { id: 'sub-2', name: 'English Language', department: 'Core', classes: CLASS_NAMES.slice() },
-  { id: 'sub-3', name: 'Basic Science', department: 'Core', classes: ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A'] },
-  { id: 'sub-4', name: 'Igbo Language', department: 'Core', classes: CLASS_NAMES.slice() },
-  { id: 'sub-5', name: 'Biology', department: 'Science', classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
-  { id: 'sub-6', name: 'Chemistry', department: 'Science', classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
-  { id: 'sub-7', name: 'Physics', department: 'Science', classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
-  { id: 'sub-8', name: 'Agricultural Science', department: 'Science', classes: ['JSS3 A', 'SSS1 A'] },
-  { id: 'sub-9', name: 'Economics', department: 'Humanities / Arts', classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
-  { id: 'sub-10', name: 'Government', department: 'Humanities / Arts', classes: ['SSS2 A', 'SSS3 A'] },
-  { id: 'sub-11', name: 'Literature', department: 'Humanities / Arts', classes: ['SSS2 A', 'SSS3 A'] },
-  { id: 'sub-12', name: 'Commerce', department: 'Business / Commercial', classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
+  { id: 'sub-1', name: 'Mathematics', department: 'Core', departments: ['Core'], classes: CLASS_NAMES.slice() },
+  { id: 'sub-2', name: 'English Language', department: 'Core', departments: ['Core'], classes: CLASS_NAMES.slice() },
+  { id: 'sub-3', name: 'Basic Science', department: 'Core', departments: ['Core'], classes: ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A'] },
+  { id: 'sub-4', name: 'Igbo Language', department: 'Core', departments: ['Core'], classes: CLASS_NAMES.slice() },
+  { id: 'sub-5', name: 'Biology', department: 'Science', departments: ['Science'], classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
+  { id: 'sub-6', name: 'Chemistry', department: 'Science', departments: ['Science'], classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
+  { id: 'sub-7', name: 'Physics', department: 'Science', departments: ['Science'], classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
+  { id: 'sub-8', name: 'Agricultural Science', department: 'Science', departments: ['Science', 'Business / Commercial'], classes: ['JSS3 A', 'SSS1 A'] },
+  { id: 'sub-9', name: 'Economics', department: 'Humanities / Arts', departments: ['Humanities / Arts', 'Business / Commercial'], classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
+  { id: 'sub-10', name: 'Government', department: 'Humanities / Arts', departments: ['Humanities / Arts'], classes: ['SSS2 A', 'SSS3 A'] },
+  { id: 'sub-11', name: 'Literature', department: 'Humanities / Arts', departments: ['Humanities / Arts'], classes: ['SSS2 A', 'SSS3 A'] },
+  { id: 'sub-12', name: 'Commerce', department: 'Business / Commercial', departments: ['Business / Commercial'], classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
 ];
 
 function buildClasses() {
@@ -357,6 +357,41 @@ function buildClasses() {
     };
   });
 }
+
+// AD14/AD15 — timetable drafts. 5 days × 6 periods; each class gets its own
+// teacher offset so the seeded drafts never clash with each other.
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const PERIOD_TIMES = [
+  '08:00 – 08:40', '08:45 – 09:25', '09:30 – 10:10',
+  '10:40 – 11:20', '11:25 – 12:05', '12:10 – 12:50',
+];
+
+function makeSlots(classLabel, filledDays) {
+  const subjects = SUBJECTS.filter((s) => s.classes.includes(classLabel)).map((s) => s.name);
+  const teachers = TEACHERS.filter((t) => t.status === 'Active');
+  const offset = CLASS_NAMES.indexOf(classLabel);
+  const slots = [];
+  DAYS.forEach((day, d) => {
+    PERIOD_TIMES.forEach((time, p) => {
+      const base = { day, period: p + 1, time };
+      if (d < filledDays && subjects.length > 0 && teachers.length > 0) {
+        slots.push({
+          ...base,
+          subject: subjects[(d * PERIOD_TIMES.length + p) % subjects.length],
+          teacherName: teachers[(offset + d + p) % teachers.length].fullName,
+        });
+      } else {
+        slots.push({ ...base, subject: null, teacherName: null });
+      }
+    });
+  });
+  return slots;
+}
+
+const TIMETABLE_DRAFTS = [
+  { id: 'ttd-1', classLabel: 'JSS1 A', term: '2026/2027 · First Term', status: 'Ready to review', slots: makeSlots('JSS1 A', 5) },
+  { id: 'ttd-2', classLabel: 'JSS1 B', term: '2026/2027 · First Term', status: 'Draft', slots: makeSlots('JSS1 B', 3) },
+];
 
 function filterInvoices(query) {
   const q = (query.q || query.search || '').toString().trim().toLowerCase();
@@ -655,7 +690,9 @@ let nextAdmissionNumber = 152;
 export async function demoRequest({ path: route, method = 'GET', query = {}, body = null }) {
   await new Promise((resolve) => setTimeout(resolve, 250)); // let loading states show
   const m = String(method || 'GET').toUpperCase();
-  const seg = String(route || '').split('/').filter(Boolean);
+  // The client URL-encodes path params (e.g. "JSS1 A" → "JSS1%20A") — decode
+  // before splitting, or class lookups by label miss and say "Class not found".
+  const seg = decodeURIComponent(String(route || '')).split('/').filter(Boolean);
 
   // AD01 — dashboard
   if (seg[0] === 'dashboard' && m === 'GET') return DASHBOARD;
@@ -768,16 +805,143 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     if (m === 'GET') return paginate(SUBJECTS, query.page);
     if (m === 'POST') {
       const name = ((body && body.name) || '').trim();
-      const department = ((body && body.department) || '').trim();
+      const departments = Array.isArray(body && body.departments)
+        ? body.departments.map((d) => String(d).trim()).filter(Boolean)
+        : [];
+      const classes = Array.isArray(body && body.classes)
+        ? body.classes.filter((c) => CLASS_NAMES.includes(c))
+        : [];
       if (!name) return { ok: false, error: 'Name the subject.' };
-      if (!department) return { ok: false, error: 'Tag the department it belongs to.' };
+      if (departments.length === 0) {
+        return { ok: false, error: 'Tag at least one department it belongs to.' };
+      }
       if (SUBJECTS.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
         return { ok: false, error: `${name} already exists in the subject list.` };
       }
-      const subject = { id: `sub-${Date.now()}`, name, department, classes: [] };
+      const subject = {
+        id: `sub-${Date.now()}`,
+        name,
+        department: departments[0], // primary department, for older readers
+        departments,
+        classes,
+      };
       SUBJECTS.push(subject);
       return { ok: true, subject };
     }
+  }
+
+  // AD14/AD15 — timetable drafts: fill slots, send for review, validate, publish
+  if (seg[0] === 'teaching-assignment-candidates' && m === 'GET') {
+    return paginate(
+      TEACHERS.filter((t) => t.status === 'Active').map((t) => ({
+        id: t.id,
+        fullName: t.fullName,
+        subjects: t.subjects || [],
+      })),
+      query.page,
+    );
+  }
+  if (seg[0] === 'timetable-drafts' && seg.length === 1) {
+    if (m === 'GET') return paginate(TIMETABLE_DRAFTS, query.page);
+    if (m === 'POST') {
+      const classLabel = ((body && body.classLabel) || '').trim();
+      if (!CLASS_NAMES.includes(classLabel)) {
+        return { ok: false, error: 'Choose a real class for the timetable.' };
+      }
+      if (TIMETABLE_DRAFTS.some((d) => d.classLabel === classLabel && d.status !== 'Published')) {
+        return {
+          ok: false,
+          error: `${classLabel} already has a timetable in progress — open it from the drafts list.`,
+        };
+      }
+      const draft = {
+        id: `ttd-${Date.now()}`,
+        classLabel,
+        term: '2026/2027 · First Term',
+        status: 'Draft',
+        slots: makeSlots(classLabel, 0),
+      };
+      TIMETABLE_DRAFTS.push(draft);
+      return { ok: true, draft };
+    }
+  }
+  if (seg[0] === 'timetable-drafts' && seg.length === 2) {
+    const draft = TIMETABLE_DRAFTS.find((d) => d.id === seg[1]);
+    if (!draft) return { ok: false, error: 'Timetable draft not found.' };
+    if (m === 'GET') return { ok: true, draft };
+    if (m === 'PATCH') {
+      if (draft.status === 'Published') {
+        return { ok: false, error: 'This timetable is published — reopen it before editing.' };
+      }
+      if (body && Array.isArray(body.slots)) {
+        const bad = body.slots.find((s) => s.subject && !s.teacherName);
+        if (bad) return { ok: false, error: `Pick a teacher for ${bad.day}, period ${bad.period}.` };
+        draft.slots = body.slots;
+      }
+      return { ok: true, draft };
+    }
+  }
+  if (seg[0] === 'timetable-drafts' && seg.length === 3 && seg[2] === 'validate' && m === 'POST') {
+    const draft = TIMETABLE_DRAFTS.find((d) => d.id === seg[1]);
+    if (!draft) return { ok: false, error: 'Timetable draft not found.' };
+    const empty = draft.slots.filter((s) => !s.subject).length;
+    if (empty > 0) {
+      return {
+        ok: false,
+        error: `${empty} period${empty === 1 ? ' is' : 's are'} still empty — fill them before publishing.`,
+      };
+    }
+    const others = TIMETABLE_DRAFTS.filter((d) => d.id !== draft.id && d.status !== 'Draft');
+    let clash = null;
+    for (const s of draft.slots) {
+      for (const o of others) {
+        const twin = o.slots.find(
+          (t) => t.day === s.day && t.period === s.period && t.teacherName && t.teacherName === s.teacherName,
+        );
+        if (twin) {
+          clash = `${s.teacherName} is timetabled for ${o.classLabel} at the same time (${s.day}, period ${s.period}).`;
+          break;
+        }
+      }
+      if (clash) break;
+    }
+    if (clash) return { ok: false, error: `Timetable clash: ${clash}` };
+    return { ok: true, conflicts: [] };
+  }
+  if (seg[0] === 'timetable-drafts' && seg.length === 3 && seg[2] === 'request-review' && m === 'POST') {
+    const draft = TIMETABLE_DRAFTS.find((d) => d.id === seg[1]);
+    if (!draft) return { ok: false, error: 'Timetable draft not found.' };
+    if (draft.status === 'Published') {
+      return { ok: false, error: 'This timetable is already published.' };
+    }
+    const empty = draft.slots.filter((s) => !s.subject).length;
+    if (empty > 0) {
+      return {
+        ok: false,
+        error: `${empty} period${empty === 1 ? ' is' : 's are'} still empty — fill them before sending for review.`,
+      };
+    }
+    draft.status = 'Ready to review';
+    return { ok: true, draft };
+  }
+  if (seg[0] === 'timetable-drafts' && seg.length === 3 && seg[2] === 'publish' && m === 'POST') {
+    const draft = TIMETABLE_DRAFTS.find((d) => d.id === seg[1]);
+    if (!draft) return { ok: false, error: 'Timetable draft not found.' };
+    if (draft.status === 'Published') {
+      return { ok: false, error: 'This timetable is already published.' };
+    }
+    if (draft.status !== 'Ready to review') {
+      return { ok: false, error: 'Send the timetable for review first — then publish it.' };
+    }
+    const empty = draft.slots.filter((s) => !s.subject).length;
+    if (empty > 0) {
+      return {
+        ok: false,
+        error: `${empty} period${empty === 1 ? ' is' : 's are'} still empty — fill them before publishing.`,
+      };
+    }
+    draft.status = 'Published';
+    return { ok: true, draft };
   }
 
   // AD21 — fee plans: list, create, and issue the bills to a class

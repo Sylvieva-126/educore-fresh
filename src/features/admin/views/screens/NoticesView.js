@@ -10,7 +10,7 @@ import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import LabelledField from '../components/LabelledField';
 import SelectSheet from '../components/SelectSheet';
-import { LoadingView, EmptyState, ErrorState } from '../components/FeedbackViews';
+import { LoadingView, EmptyState, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import { PrimaryButton } from './AdminHomeView';
 import { NoticesPresenter } from '../../presenters/NoticesPresenter';
 import { NoticesModel } from '../../models';
@@ -47,6 +47,9 @@ export default function NoticesView({ navigation }) {
   const { composer } = state;
   const audienceLabel =
     AUDIENCES.find((a) => a.value === composer.audience)?.label || composer.audience;
+
+  // Composer failures pop up instead of inline text.
+  useActionErrorAlert(composer.errorText, 'Notice not sent');
 
   return (
     <AdminScaffold
@@ -102,7 +105,6 @@ export default function NoticesView({ navigation }) {
         onPress={() => setAudienceSheetVisible(true)}
       />
 
-      {composer.errorText ? <Text style={styles.error}>{composer.errorText}</Text> : null}
       {composer.state === 'accepted' ? (
         <Text style={styles.accepted}>Notice accepted — it is on its way to the audience.</Text>
       ) : null}

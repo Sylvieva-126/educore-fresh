@@ -7,7 +7,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import SelectSheet from '../components/SelectSheet';
-import { LoadingView, ErrorState } from '../components/FeedbackViews';
+import { LoadingView, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import LabelledField from '../components/LabelledField';
 import { SecondaryButton } from './AdminHomeView';
 import { AcademicStructurePresenter } from '../../presenters/AcademicStructurePresenter';
@@ -17,14 +17,30 @@ import { colors, typography, spacing } from '../theme';
 const DEPARTMENTS = ['Core', 'Science', 'Humanities / Arts', 'Business / Commercial'].map(
   (d) => ({ label: d, value: d }),
 );
+const CLASSES = ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A', 'SSS1 A', 'SSS2 A', 'SSS3 A'].map(
+  (c) => ({ label: c, value: c }),
+);
 
 export default function AcademicStructureView({ navigation }) {
   const [presenter] = useState(() => new AcademicStructurePresenter(AcademicStructureModel));
   const [state, setState] = useState(presenter.initialState);
   const loadedOnce = useRef(false);
   const [subjectName, setSubjectName] = useState('');
-  const [subjectDept, setSubjectDept] = useState('');
+  const [subjectDepts, setSubjectDepts] = useState([]);
+  const [subjectClasses, setSubjectClasses] = useState([]);
   const [deptSheet, setDeptSheet] = useState(false);
+  const [classSheet, setClassSheet] = useState(false);
+
+  const toggleDept = (value) => {
+    setSubjectDepts((prev) =>
+      prev.includes(value) ? prev.filter((d) => d !== value) : [...prev, value],
+    );
+  };
+  const toggleClass = (value) => {
+    setSubjectClasses((prev) =>
+      prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value],
+    );
+  };
 
   useEffect(() => {
     presenter.attach(setState, navigation);
@@ -50,9 +66,12 @@ export default function AcademicStructureView({ navigation }) {
   const subjectRows = state.subjects.map((s) => ({
     id: s.id,
     title: s.name,
-    meta: `${s.department} · ${s.classes.length} classes`,
-    status: s.department,
+    meta: `${(s.departments || [s.department]).join(' · ')} · ${s.classes.length} classes`,
+    status: (s.departments || [s.department])[0],
   }));
+
+  // Action errors (duplicate subject refused, empty fields) pop up.
+  useActionErrorAlert(state.errorText);
 
   return (
     <AdminScaffold
@@ -68,7 +87,6 @@ export default function AcademicStructureView({ navigation }) {
       {state.status === 'content' ? (
         <View>
           {state.notice ? <Text style={styles.notice}>{state.notice}</Text> : null}
-          {state.errorText ? <Text style={styles.error}>{state.errorText}</Text> : null}
 
           <Text style={styles.section}>Classes</Text>
           <RecordList
@@ -90,28 +108,61 @@ export default function AcademicStructureView({ navigation }) {
             onChangeText={setSubjectName}
           />
           <LabelledField
-            label="Department"
-            placeholder="Choose the department"
-            displayValue={subjectDept}
+            label="Departments"
+            placeholder="Tap to tick one or more"
+            displayValue={
+              subjectDepts.length
+                ? subjectDepts.length === 1
+                  ? subjectDepts[0]
+                  : `${subjectDepts.length} departments selected`
+                : ''
+            }
             onPress={() => setDeptSheet(true)}
+          />
+          <LabelledField
+            label="Taught in (classes)"
+            placeholder="e.g. only the JSS classes — tap to tick"
+            displayValue={
+              subjectClasses.length
+                ? subjectClasses.length === 7
+                  ? 'All classes'
+                  : `${subjectClasses.length} classes selected`
+                : ''
+            }
+            onPress={() => setClassSheet(true)}
           />
           <SecondaryButton
             label={state.savingSubject ? 'Saving…' : 'Add subject'}
             disabled={state.savingSubject}
             onPress={() => {
-              presenter.addSubject({ name: subjectName, department: subjectDept });
+              presenter.addSubject({
+                name: subjectName,
+                departments: subjectDepts,
+                classes: subjectClasses,
+              });
               setSubjectName('');
-              setSubjectDept('');
+              setSubjectDepts([]);
+              setSubjectClasses([]);
             }}
           />
 
           <SelectSheet
             visible={deptSheet}
-            label="Department"
+            label="Departments — tap to tick, then Done"
             options={DEPARTMENTS}
-            value={subjectDept}
-            onSelect={setSubjectDept}
+            multiple
+            selectedValues={subjectDepts}
+            onToggle={toggleDept}
             onClose={() => setDeptSheet(false)}
+          />
+          <SelectSheet
+            visible={classSheet}
+            label="Classes this subject is taught in"
+            options={CLASSES}
+            multiple
+            selectedValues={subjectClasses}
+            onToggle={toggleClass}
+            onClose={() => setClassSheet(false)}
           />
         </View>
       ) : null}

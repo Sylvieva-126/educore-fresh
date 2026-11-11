@@ -6,7 +6,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
-import { LoadingView, ErrorState } from '../components/FeedbackViews';
+import { LoadingView, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import LabelledField from '../components/LabelledField';
 import SelectSheet from '../components/SelectSheet';
 import { SecondaryButton } from './AdminHomeView';
@@ -79,6 +79,9 @@ export default function FeePlansView({ navigation }) {
     raw: p,
   }));
 
+  // Action errors (duplicate plan refused, empty amount, issue guards) pop up.
+  useActionErrorAlert(state.errorText);
+
   return (
     <AdminScaffold
       eyebrow="Fees"
@@ -93,7 +96,6 @@ export default function FeePlansView({ navigation }) {
       {state.status === 'content' ? (
         <View>
           {state.notice ? <Text style={styles.notice}>{state.notice}</Text> : null}
-          {state.errorText ? <Text style={styles.error}>{state.errorText}</Text> : null}
 
           <Text style={styles.section}>Fee plans</Text>
           <RecordList
