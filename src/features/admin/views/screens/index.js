@@ -10,6 +10,7 @@ import GuardianListView from './GuardianListView';
 import GuardianProfileView from './GuardianProfileView';
 import TeacherListView from './TeacherListView';
 import TeacherProfileView from './TeacherProfileView';
+import FeePlansView from './FeePlansView';
 import StudentFormView from './StudentFormView';
 import InvoiceListView from './InvoiceListView';
 import InvoiceDetailView from './InvoiceDetailView';
@@ -92,7 +93,12 @@ export const ADMIN_SCREENS = {
     tab: 'Academics',
   },
   AD20: { name: 'Reports', title: 'Reports', tab: 'Academics' },
-  AD21: { name: 'FeePlans', title: 'Set fees and issue bills', tab: 'Fees' },
+  AD21: {
+    name: 'FeePlans',
+    title: 'Set fees and issue bills',
+    Component: FeePlansView,
+    tab: 'Fees',
+  },
   AD22: { name: 'InvoiceList', title: 'Student invoices', Component: InvoiceListView, tab: 'Fees' },
   AD23: {
     name: 'InvoiceDetail',

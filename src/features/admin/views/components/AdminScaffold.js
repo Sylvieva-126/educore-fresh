@@ -4,8 +4,9 @@
  * optional bottom action area. Every admin screen wraps itself in this.
  */
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { colors, typography, spacing } from '../theme';
 
 export default function AdminScaffold({
@@ -18,8 +19,17 @@ export default function AdminScaffold({
   insetBottom = true, // false for screens inside the tab bar (it owns the bottom inset)
   children,
 }) {
+  const navigation = useNavigation();
+  // Sub-pages show a back arrow; tab roots have nowhere to go back to.
+  const canGoBack = navigation.canGoBack();
+
   return (
     <SafeAreaView style={styles.safe} edges={insetBottom ? ['top', 'bottom'] : ['top']}>
+      {canGoBack ? (
+        <Pressable style={styles.backRow} onPress={() => navigation.goBack()} hitSlop={12}>
+          <Text style={styles.backText}>‹ Back</Text>
+        </Pressable>
+      ) : null}
       <View style={styles.context}>
         <Text style={styles.contextTop}>{contextTop}</Text>
         <Text style={styles.contextBottom}>{contextBottom}</Text>
@@ -46,6 +56,8 @@ export default function AdminScaffold({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
+  backRow: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  backText: { ...typography.body, color: colors.primary },
   context: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,

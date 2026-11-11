@@ -103,25 +103,35 @@ export default function StudentProfileView({ route, navigation }) {
             </Text>
           ) : null}
 
-          <Text style={styles.section}>Move class</Text>
-          <LabelledField
-            label="New class"
-            placeholder="Choose the class to move to"
-            displayValue={targetClass || ''}
-            onPress={() => setClassSheet(true)}
-          />
-          {state.classMoveError ? <Text style={styles.error}>{state.classMoveError}</Text> : null}
-          <SecondaryButton
-            label={
-              state.classMoveState === 'saving'
-                ? 'Saving…'
-                : state.classMoveState === 'accepted'
-                  ? 'Class move accepted'
-                  : 'Request class move'
-            }
-            disabled={state.classMoveState === 'saving' || !targetClass}
-            onPress={() => presenter.confirmClassMove(targetClass, today)}
-          />
+          {s.status === 'Withdrawn' || s.status === 'Graduated' ? (
+            <Text style={styles.muted}>
+              {s.status === 'Withdrawn'
+                ? 'No class moves or withdrawal for a withdrawn student.'
+                : 'No class moves or withdrawal for a graduated student.'}
+            </Text>
+          ) : (
+            <>
+              <Text style={styles.section}>Move class</Text>
+              <LabelledField
+                label="New class"
+                placeholder="Choose the class to move to"
+                displayValue={targetClass || ''}
+                onPress={() => setClassSheet(true)}
+              />
+              {state.classMoveError ? <Text style={styles.error}>{state.classMoveError}</Text> : null}
+              <SecondaryButton
+                label={
+                  state.classMoveState === 'saving'
+                    ? 'Saving…'
+                    : state.classMoveState === 'accepted'
+                      ? 'Class move accepted'
+                      : 'Request class move'
+                }
+                disabled={state.classMoveState === 'saving' || !targetClass}
+                onPress={() => presenter.confirmClassMove(targetClass, today)}
+              />
+            </>
+          )}
 
           {s.status === 'Withdrawn' || s.status === 'Graduated' ? (
             <Text style={styles.muted}>

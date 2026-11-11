@@ -296,6 +296,31 @@ const TEACHERS = [
   },
 ];
 
+// AD21 — fee plans per class. Draft until the office issues the bills; issuing
+// creates one invoice per ACTIVE student in that class.
+const FEE_PLANS = [
+  {
+    id: 'fp-1', classLabel: 'JSS1 A', title: 'First Term tuition 2026/2027',
+    term: '2026/2027 · First Term', amount: 85000, amountLabel: '₦85,000',
+    dueDate: '2026-09-28', status: 'Issued', issuedCount: 3,
+  },
+  {
+    id: 'fp-2', classLabel: 'SSS3 A', title: 'First Term tuition 2026/2027',
+    term: '2026/2027 · First Term', amount: 85000, amountLabel: '₦85,000',
+    dueDate: '2026-09-28', status: 'Issued', issuedCount: 2,
+  },
+  {
+    id: 'fp-3', classLabel: 'JSS2 A', title: 'First Term tuition 2026/2027',
+    term: '2026/2027 · First Term', amount: 85000, amountLabel: '₦85,000',
+    dueDate: '2026-12-15', status: 'Draft', studentsCount: 2,
+  },
+  {
+    id: 'fp-4', classLabel: 'SSS1 A', title: 'Excursion levy — First Term',
+    term: '2026/2027 · First Term', amount: 15000, amountLabel: '₦15,000',
+    dueDate: '2026-11-30', status: 'Draft', studentsCount: 3,
+  },
+];
+
 function filterInvoices(query) {
   const q = (query.q || query.search || '').toString().trim().toLowerCase();
   const status = query.status && query.status !== 'all' ? query.status : null;
@@ -570,7 +595,7 @@ const CONVERSATIONS = [
 
 import { cleanText, normalizeEmail, normalizePhone } from '../utils/validators.js';
 
-function paginate(items, page = 1, perPage = 10) {
+function paginate(items, page = 1, perPage = 20) {
   const p = Math.max(1, Number(page) || 1);
   const start = (p - 1) * perPage;
   return {
@@ -680,6 +705,70 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       }
       student.status = 'Withdrawn';
       return { ok: true };
+    }
+  }
+
+  // AD21 — fee plans: list, create, and issue the bills to a class
+  if (seg[0] === 'finance' && seg[1] === 'fee-plans' && seg.length === 2) {
+    if (m === 'GET') return paginate(FEE_PLANS, query.page);
+    if (m === 'POST') {
+      const classLabel = ((body && body.classLabel) || '').trim();
+      const title = ((body && body.title) || '').trim();
+      const amount = Number(body && body.amount);
+      if (!classLabel) return { ok: false, error: 'Choose the class this plan bills.' };
+      if (!title) return { ok: false, error: 'Name the plan, e.g. First Term tuition.' };
+      if (!amount || amount <= 0) return { ok: false, error: 'Enter the amount in naira.' };
+      const plan = {
+        id: `fp-${Date.now()}`,
+        classLabel,
+        title,
+        term: (body && body.term) || '2026/2027 · First Term',
+        amount,
+        amountLabel: naira(amount),
+        dueDate: (body && body.dueDate) || '2026-12-31',
+        status: 'Draft',
+        studentsCount: STUDENTS.filter(
+          (s) => s.classLabel === classLabel && s.status === 'Active',
+        ).length,
+      };
+      FEE_PLANS.unshift(plan);
+      return { ok: true, plan };
+    }
+  }
+  if (seg[0] === 'finance' && seg[1] === 'fee-plans' && seg.length === 3 && m === 'GET') {
+    return FEE_PLANS.find((p) => p.id === seg[2]) || null;
+  }
+  if (seg[0] === 'finance' && seg[1] === 'fee-plans' && seg.length === 4 && m === 'POST') {
+    const plan = FEE_PLANS.find((p) => p.id === seg[2]);
+    if (!plan) return { ok: false, error: 'Fee plan not found.' };
+    const billable = STUDENTS.filter(
+      (s) => s.classLabel === plan.classLabel && s.status === 'Active',
+    );
+    if (seg[3] === 'issue-preview') {
+      return { ok: true, studentCount: billable.length };
+    }
+    if (seg[3] === 'issue') {
+      if (plan.status === 'Issued') {
+        return { ok: false, error: 'These bills were already issued.' };
+      }
+      let num = Math.max(...INVOICES.map((i) => Number(String(i.number).split('-').pop()))) + 1;
+      billable.forEach((s) => {
+        INVOICES.push({
+          id: `inv-${num}`,
+          number: `INV-2026-${String(num).padStart(4, '0')}`,
+          studentName: s.fullName,
+          planName: plan.title,
+          amount: plan.amount,
+          paid: 0,
+          balanceLabel: `Balance ${naira(plan.amount)}`,
+          status: plan.dueDate < todayLabel() ? 'Overdue' : 'Draft',
+          dueDate: plan.dueDate,
+        });
+        num += 1;
+      });
+      plan.status = 'Issued';
+      plan.issuedCount = billable.length;
+      return { ok: true, issued: billable.length };
     }
   }
 
