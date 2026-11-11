@@ -321,6 +321,43 @@ const FEE_PLANS = [
   },
 ];
 
+// AD12/AD13 — the class list and the subject list. Class rows are computed
+// from STUDENTS/TEACHERS at read time, so counts survive moves and withdrawals.
+const CLASS_NAMES = ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A', 'SSS1 A', 'SSS2 A', 'SSS3 A'];
+const SSS_DEPARTMENTS = {
+  'SSS1 A': 'Science',
+  'SSS2 A': 'Science',
+  'SSS3 A': 'Science',
+};
+const SUBJECTS = [
+  { id: 'sub-1', name: 'Mathematics', department: 'Core', classes: CLASS_NAMES.slice() },
+  { id: 'sub-2', name: 'English Language', department: 'Core', classes: CLASS_NAMES.slice() },
+  { id: 'sub-3', name: 'Basic Science', department: 'Core', classes: ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A'] },
+  { id: 'sub-4', name: 'Igbo Language', department: 'Core', classes: CLASS_NAMES.slice() },
+  { id: 'sub-5', name: 'Biology', department: 'Science', classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
+  { id: 'sub-6', name: 'Chemistry', department: 'Science', classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
+  { id: 'sub-7', name: 'Physics', department: 'Science', classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
+  { id: 'sub-8', name: 'Agricultural Science', department: 'Science', classes: ['JSS3 A', 'SSS1 A'] },
+  { id: 'sub-9', name: 'Economics', department: 'Humanities / Arts', classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
+  { id: 'sub-10', name: 'Government', department: 'Humanities / Arts', classes: ['SSS2 A', 'SSS3 A'] },
+  { id: 'sub-11', name: 'Literature', department: 'Humanities / Arts', classes: ['SSS2 A', 'SSS3 A'] },
+  { id: 'sub-12', name: 'Commerce', department: 'Business / Commercial', classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
+];
+
+function buildClasses() {
+  return CLASS_NAMES.map((name, i) => {
+    const form = TEACHERS.find((t) => t.formClass === name && t.status === 'Active');
+    return {
+      id: `cls-${i + 1}`,
+      classLabel: name,
+      department: SSS_DEPARTMENTS[name] || null, // JSS classes have no department yet
+      formTeacherName: form ? form.fullName : 'Not assigned yet',
+      studentCount: STUDENTS.filter((s) => s.classLabel === name).length,
+      subjectCount: SUBJECTS.filter((s) => s.classes.includes(name)).length,
+    };
+  });
+}
+
 function filterInvoices(query) {
   const q = (query.q || query.search || '').toString().trim().toLowerCase();
   const status = query.status && query.status !== 'all' ? query.status : null;
@@ -708,6 +745,41 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     }
   }
 
+  // AD12 — class list and subject list
+  if (seg[0] === 'classes' && seg.length === 1) {
+    if (m === 'GET') return paginate(buildClasses(), query.page);
+    if (m === 'POST') return { ok: false, error: 'Class creation comes with the real backend.' };
+  }
+  // AD13 — one class workspace: the class, its roster, its subjects
+  if (seg[0] === 'classes' && seg.length === 3 && seg[2] === 'workspace' && m === 'GET') {
+    const cls = buildClasses().find((c) => c.classLabel === seg[1]);
+    if (!cls) return { ok: false, error: 'Class not found.' };
+    return {
+      ok: true,
+      class: cls,
+      students: STUDENTS.filter((s) => s.classLabel === seg[1]),
+      subjects: SUBJECTS.filter((s) => s.classes.includes(seg[1])),
+    };
+  }
+  if (seg[0] === 'classes' && seg.length === 3 && seg[2] === 'roster' && m === 'GET') {
+    return paginate(STUDENTS.filter((s) => s.classLabel === seg[1]), query.page);
+  }
+  if (seg[0] === 'subjects' && seg.length === 1) {
+    if (m === 'GET') return paginate(SUBJECTS, query.page);
+    if (m === 'POST') {
+      const name = ((body && body.name) || '').trim();
+      const department = ((body && body.department) || '').trim();
+      if (!name) return { ok: false, error: 'Name the subject.' };
+      if (!department) return { ok: false, error: 'Tag the department it belongs to.' };
+      if (SUBJECTS.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
+        return { ok: false, error: `${name} already exists in the subject list.` };
+      }
+      const subject = { id: `sub-${Date.now()}`, name, department, classes: [] };
+      SUBJECTS.push(subject);
+      return { ok: true, subject };
+    }
+  }
+
   // AD21 — fee plans: list, create, and issue the bills to a class
   if (seg[0] === 'finance' && seg[1] === 'fee-plans' && seg.length === 2) {
     if (m === 'GET') return paginate(FEE_PLANS, query.page);
@@ -718,6 +790,17 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       if (!classLabel) return { ok: false, error: 'Choose the class this plan bills.' };
       if (!title) return { ok: false, error: 'Name the plan, e.g. First Term tuition.' };
       if (!amount || amount <= 0) return { ok: false, error: 'Enter the amount in naira.' };
+      const dup = FEE_PLANS.find(
+        (p) =>
+          p.classLabel.toLowerCase() === classLabel.toLowerCase() &&
+          p.title.toLowerCase() === title.toLowerCase(),
+      );
+      if (dup) {
+        return {
+          ok: false,
+          error: `${classLabel} already has "${dup.title}" — issue that plan instead of creating it again.`,
+        };
+      }
       const plan = {
         id: `fp-${Date.now()}`,
         classLabel,

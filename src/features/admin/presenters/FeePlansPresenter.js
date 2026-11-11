@@ -54,21 +54,50 @@ export class FeePlansPresenter {
     return this.load();
   }
 
-  /** Create a Draft plan from the form fields (the View owns the inputs). */
+  /**
+   * Create one Draft plan per selected class from the form fields (the View
+   * owns the inputs). Duplicate class+name is refused by the API per class,
+   * so a multi-class create can partly succeed — the notice says what happened.
+   */
   async createPlan(fields) {
     if (this.state.savingPlan) return;
-    this._setState({ savingPlan: true, notice: null, errorText: null });
-    try {
-      await this.model.create(fields);
-      this._setState({ savingPlan: false, notice: 'Plan created as a draft — issue it when ready.' });
-      await this.load({ showLoading: false });
-    } catch (error) {
-      this._setState({
-        savingPlan: false,
-        notice: null,
-        errorText: error instanceof ApiError ? error.message : 'The plan was not saved.',
-      });
+    const classes = Array.isArray(fields.classes) ? fields.classes : [];
+    if (classes.length === 0) {
+      this._setState({ notice: null, errorText: 'Pick at least one class for the plan.' });
+      return;
     }
+    if (!fields.title || !fields.title.trim()) {
+      this._setState({ notice: null, errorText: 'Name the plan, e.g. First Term tuition.' });
+      return;
+    }
+    if (!fields.amount || fields.amount <= 0) {
+      this._setState({ notice: null, errorText: 'Enter the amount in naira.' });
+      return;
+    }
+    this._setState({ savingPlan: true, notice: null, errorText: null });
+    const created = [];
+    let lastError = null;
+    for (const classLabel of classes) {
+      try {
+        await this.model.create({ classLabel, title: fields.title, amount: fields.amount });
+        created.push(classLabel);
+      } catch (error) {
+        lastError = error instanceof ApiError ? error.message : 'The plan was not saved.';
+      }
+    }
+    if (created.length === 0) {
+      this._setState({ savingPlan: false, notice: null, errorText: lastError });
+      return;
+    }
+    const skipped = classes.length - created.length;
+    this._setState({
+      savingPlan: false,
+      notice:
+        `Draft plan created for ${created.length} class${created.length === 1 ? '' : 'es'}` +
+        (skipped > 0 ? ` — ${skipped} skipped (already had this plan)` : '') +
+        '. Issue it when ready.',
+    });
+    await this.load({ showLoading: false });
   }
 
   /** Issue the bills for one plan: one invoice per ACTIVE student in the class. */

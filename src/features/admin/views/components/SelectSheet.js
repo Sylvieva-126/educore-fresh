@@ -6,7 +6,21 @@ import React from 'react';
 import { Modal, View, Text, Pressable, FlatList, StyleSheet } from 'react-native';
 import { colors, typography, spacing, touchTarget } from '../theme';
 
-export default function SelectSheet({ visible, label, options = [], value, onSelect, onClose }) {
+export default function SelectSheet({
+  visible,
+  label,
+  options = [],
+  value,
+  onSelect,
+  onClose,
+  // Multi-select mode (e.g. "apply this fee to several classes"): tapping a
+  // row toggles it and stays open until Done. Single-select behaviour is
+  // unchanged for every existing caller.
+  multiple = false,
+  selectedValues = [],
+  onToggle,
+}) {
+  const picked = multiple ? selectedValues.length : 0;
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
@@ -17,10 +31,16 @@ export default function SelectSheet({ visible, label, options = [], value, onSel
             data={options}
             keyExtractor={(item) => String(item.value)}
             renderItem={({ item }) => {
-              const selected = item.value === value;
+              const selected = multiple
+                ? selectedValues.includes(item.value)
+                : item.value === value;
               return (
                 <Pressable
                   onPress={() => {
+                    if (multiple) {
+                      onToggle && onToggle(item.value);
+                      return;
+                    }
                     onSelect(item.value);
                     onClose();
                   }}
@@ -37,6 +57,11 @@ export default function SelectSheet({ visible, label, options = [], value, onSel
               );
             }}
           />
+          {multiple ? (
+            <Pressable style={({ pressed }) => [styles.done, pressed && { opacity: 0.7 }]} onPress={onClose}>
+              <Text style={styles.doneText}>Done{picked ? ` (${picked} selected)` : ''}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -75,4 +100,13 @@ const styles = StyleSheet.create({
   optionLabel: { ...typography.body, flex: 1 },
   optionSelected: { color: colors.primary, fontWeight: '700' },
   check: { color: colors.primary, fontSize: 18, fontWeight: '700' },
+  done: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  doneText: { ...typography.body, color: colors.onPrimary, fontWeight: '700' },
 });

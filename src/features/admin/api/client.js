@@ -69,7 +69,14 @@ async function request(template, options = {}) {
 
   // Demo mode — serve the built-in sample data, no network at all.
   if (API_CONFIG.demo) {
-    return demoRequest({ path: path(template, params), method, query, body });
+    const payload = await demoRequest({ path: path(template, params), method, query, body });
+    // Demo handlers signal rejection as { ok: false, error }. Surface it the
+    // same way a failed HTTP call would be, so every presenter's catch works
+    // and error messages actually reach the screen.
+    if (payload && payload.ok === false) {
+      throw new ApiError(422, payload.error || 'Request failed.');
+    }
+    return payload;
   }
 
   const url = buildUrl(path(template, params), query);

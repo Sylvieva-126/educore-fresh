@@ -8,19 +8,32 @@ import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import { LoadingView, ErrorState } from '../components/FeedbackViews';
 import LabelledField from '../components/LabelledField';
+import SelectSheet from '../components/SelectSheet';
 import { SecondaryButton } from './AdminHomeView';
 import { FeePlansPresenter } from '../../presenters/FeePlansPresenter';
 import { FeePlanModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
+
+const CLASSES = ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A', 'SSS1 A', 'SSS2 A', 'SSS3 A'].map(
+  (c) => ({ label: c, value: c }),
+);
 
 export default function FeePlansView({ navigation }) {
   const [presenter] = useState(() => new FeePlansPresenter(FeePlanModel));
   const [state, setState] = useState(presenter.initialState);
   const loadedOnce = useRef(false);
   // New-plan form fields (view-owned; the presenter only receives values).
-  const [formClass, setFormClass] = useState('');
+  // Classes come from a multi-select sheet, not free text — no more typos.
+  const [pickedClasses, setPickedClasses] = useState([]);
+  const [classSheet, setClassSheet] = useState(false);
   const [formTitle, setFormTitle] = useState('');
   const [formAmount, setFormAmount] = useState('');
+
+  const toggleClass = (value) => {
+    setPickedClasses((prev) =>
+      prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value],
+    );
+  };
 
   // Issuing is confirmed twice, like the other money actions.
   const confirmIssue = (plan) => {
@@ -91,10 +104,16 @@ export default function FeePlansView({ navigation }) {
 
           <Text style={styles.section}>New fee plan</Text>
           <LabelledField
-            label="Class"
-            placeholder="e.g. JSS1 B"
-            value={formClass}
-            onChangeText={setFormClass}
+            label="Classes"
+            placeholder="Pick one or more classes"
+            displayValue={
+              pickedClasses.length
+                ? pickedClasses.length === 1
+                  ? pickedClasses[0]
+                  : `${pickedClasses.length} classes selected`
+                : ''
+            }
+            onPress={() => setClassSheet(true)}
           />
           <LabelledField
             label="Plan name"
@@ -114,16 +133,27 @@ export default function FeePlansView({ navigation }) {
             disabled={state.savingPlan}
             onPress={() =>
               presenter.createPlan({
-                classLabel: formClass,
+                classes: pickedClasses,
                 title: formTitle,
                 amount: Number(formAmount),
               })
             }
           />
           <Text style={styles.hint}>
-            Issuing a plan creates one bill per ACTIVE student in the class — it never bills
-            withdrawn or graduated students, and never bills a class twice.
+            One draft plan is created per selected class. Issuing a plan creates one bill per
+            ACTIVE student in that class — it never bills withdrawn or graduated students, and
+            never bills a class twice.
           </Text>
+
+          <SelectSheet
+            visible={classSheet}
+            label="Classes to bill — tap to tick, then Done"
+            options={CLASSES}
+            multiple
+            selectedValues={pickedClasses}
+            onToggle={toggleClass}
+            onClose={() => setClassSheet(false)}
+          />
         </View>
       ) : null}
     </AdminScaffold>

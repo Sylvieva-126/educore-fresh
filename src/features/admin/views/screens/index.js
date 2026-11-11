@@ -11,6 +11,8 @@ import GuardianProfileView from './GuardianProfileView';
 import TeacherListView from './TeacherListView';
 import TeacherProfileView from './TeacherProfileView';
 import FeePlansView from './FeePlansView';
+import AcademicStructureView from './AcademicStructureView';
+import ClassWorkspaceView from './ClassWorkspaceView';
 import StudentFormView from './StudentFormView';
 import InvoiceListView from './InvoiceListView';
 import InvoiceDetailView from './InvoiceDetailView';
@@ -74,8 +76,18 @@ export const ADMIN_SCREENS = {
     Component: CalendarView,
     tab: 'Academics',
   },
-  AD12: { name: 'AcademicStructure', title: 'Classes, subjects and departments', tab: 'Academics' },
-  AD13: { name: 'ClassWorkspace', title: 'One class and its student list', tab: 'Academics' },
+  AD12: {
+    name: 'AcademicStructure',
+    title: 'Classes, subjects and departments',
+    Component: AcademicStructureView,
+    tab: 'Academics',
+  },
+  AD13: {
+    name: 'ClassWorkspace',
+    title: 'One class and its student list',
+    Component: ClassWorkspaceView,
+    tab: 'Academics',
+  },
   AD14: { name: 'TimetableBuilder', title: 'Build the weekly timetable', tab: 'Academics' },
   AD15: { name: 'TimetablePublish', title: 'Review and publish the timetable', tab: 'Academics' },
   AD16: {
