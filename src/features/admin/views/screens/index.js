@@ -15,6 +15,8 @@ import AcademicStructureView from './AcademicStructureView';
 import ClassWorkspaceView from './ClassWorkspaceView';
 import TimetableBuilderView from './TimetableBuilderView';
 import TimetablePublishView from './TimetablePublishView';
+import RegisterReviewView from './RegisterReviewView';
+import AssessmentRulesView from './AssessmentRulesView';
 import StudentFormView from './StudentFormView';
 import InvoiceListView from './InvoiceListView';
 import InvoiceDetailView from './InvoiceDetailView';
@@ -108,8 +110,18 @@ export const ADMIN_SCREENS = {
     Component: AttendanceOverviewView,
     tab: 'Academics',
   },
-  AD17: { name: 'RegisterReview', title: 'View or correct a class register', tab: 'Academics' },
-  AD18: { name: 'AssessmentRules', title: 'Set exams and grading rules', tab: 'Academics' },
+  AD17: {
+    name: 'RegisterReview',
+    title: 'View or correct a class register',
+    Component: RegisterReviewView,
+    tab: 'Academics',
+  },
+  AD18: {
+    name: 'AssessmentRules',
+    title: 'Set exams and grading rules',
+    Component: AssessmentRulesView,
+    tab: 'Academics',
+  },
   AD19: {
     name: 'ResultsReview',
     title: 'Review and publish results',

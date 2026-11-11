@@ -13,10 +13,6 @@ import { TimetableModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const PERIOD_TIMES = [
-  '08:00 – 08:40', '08:45 – 09:25', '09:30 – 10:10',
-  '10:40 – 11:20', '11:25 – 12:05', '12:10 – 12:50',
-];
 
 export default function TimetablePublishView({ navigation }) {
   const [presenter] = useState(() => new TimetablePublishPresenter(TimetableModel));
@@ -40,7 +36,9 @@ export default function TimetablePublishView({ navigation }) {
   useActionErrorAlert(state.errorText);
 
   const draft = state.draft;
-  const filledCount = draft ? draft.slots.filter((s) => s.subject).length : 0;
+  const filledCount = draft
+    ? draft.slots.filter((s) => s.subject || s.activity).length
+    : 0;
 
   const confirmPublish = () => {
     Alert.alert(
@@ -53,13 +51,16 @@ export default function TimetablePublishView({ navigation }) {
     );
   };
 
-  const listRows = state.drafts.map((d) => ({
-    id: d.id,
-    title: d.classLabel,
-    meta: `${d.slots.filter((s) => s.subject).length}/30 periods filled · ${d.term}`,
-    status: d.status,
-    raw: d,
-  }));
+  const listRows = state.drafts.map((d) => {
+    const filled = d.slots.filter((s) => s.subject || s.activity).length;
+    return {
+      id: d.id,
+      title: d.classLabel,
+      meta: `${filled}/${d.slots.length} periods filled · ${d.term}`,
+      status: d.status,
+      raw: d,
+    };
+  });
 
   return (
     <AdminScaffold
@@ -67,7 +68,7 @@ export default function TimetablePublishView({ navigation }) {
       title={draft ? `Review — ${draft.classLabel}` : 'Review and publish the timetable'}
       subtitle={
         draft
-          ? `${draft.classLabel} · ${draft.status} · ${filledCount}/30 periods`
+          ? `${draft.classLabel} · ${draft.status} · ${filledCount}/${draft.slots.length} periods`
           : 'Tap a draft to review it, then publish.'
       }
     >
@@ -97,23 +98,29 @@ export default function TimetablePublishView({ navigation }) {
         <View>
           {state.notice ? <Text style={styles.notice}>{state.notice}</Text> : null}
 
-          {DAYS.map((day) => (
-            <View key={day}>
-              <Text style={styles.section}>{day}</Text>
-              <RecordList
-                items={PERIOD_TIMES.map((time, i) => {
-                  const slot = draft.slots.find((s) => s.day === day && s.period === i + 1);
-                  return {
-                    id: `${day}-${i + 1}`,
-                    title: `Period ${i + 1} · ${time}`,
-                    meta: slot && slot.subject ? `${slot.subject} · ${slot.teacherName}` : 'Empty',
-                    status: slot && slot.subject ? 'Filled' : 'Empty',
-                  };
-                })}
-                emptyText=""
-              />
-            </View>
-          ))}
+          {DAYS.map((day) => {
+            const daySlots = draft.slots
+              .filter((s) => s.day === day)
+              .sort((a, b) => a.period - b.period);
+            return (
+              <View key={day}>
+                <Text style={styles.section}>{day}</Text>
+                <RecordList
+                  items={daySlots.map((slot) => ({
+                    id: `${day}-${slot.period}`,
+                    title: `Period ${slot.period} · ${slot.time}`,
+                    meta: slot.activity
+                      ? `${slot.activity} — no teacher needed`
+                      : slot.subject
+                        ? `${slot.subject} · ${slot.teacherName}`
+                        : 'Empty',
+                    status: slot.activity ? 'Activity' : slot.subject ? 'Filled' : 'Empty',
+                  }))}
+                  emptyText=""
+                />
+              </View>
+            );
+          })}
 
           <View style={styles.actions}>
             {draft.status !== 'Published' ? (

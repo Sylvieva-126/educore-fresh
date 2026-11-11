@@ -14,7 +14,7 @@ import { AcademicStructurePresenter } from '../../presenters/AcademicStructurePr
 import { AcademicStructureModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
 
-const DEPARTMENTS = ['Core', 'Science', 'Humanities / Arts', 'Business / Commercial'].map(
+const DEPARTMENTS = ['Core', 'JSS', 'Science', 'Humanities / Arts', 'Business / Commercial'].map(
   (d) => ({ label: d, value: d }),
 );
 const CLASSES = ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A', 'SSS1 A', 'SSS2 A', 'SSS3 A'].map(
@@ -31,10 +31,18 @@ export default function AcademicStructureView({ navigation }) {
   const [deptSheet, setDeptSheet] = useState(false);
   const [classSheet, setClassSheet] = useState(false);
 
+  // Rule: JSS classes take Core or JSS subjects only — picking only SSS
+  // departments hides the JSS classes and drops any already-ticked ones.
+  const jssAllowed = subjectDepts.includes('Core') || subjectDepts.includes('JSS');
+
   const toggleDept = (value) => {
-    setSubjectDepts((prev) =>
-      prev.includes(value) ? prev.filter((d) => d !== value) : [...prev, value],
-    );
+    const next = subjectDepts.includes(value)
+      ? subjectDepts.filter((d) => d !== value)
+      : [...subjectDepts, value];
+    setSubjectDepts(next);
+    if (!(next.includes('Core') || next.includes('JSS'))) {
+      setSubjectClasses((prev) => prev.filter((c) => !c.startsWith('JSS')));
+    }
   };
   const toggleClass = (value) => {
     setSubjectClasses((prev) =>
@@ -109,7 +117,7 @@ export default function AcademicStructureView({ navigation }) {
           />
           <LabelledField
             label="Departments"
-            placeholder="Tap to tick one or more"
+            placeholder="Tap to tick — Core or JSS covers the junior classes"
             displayValue={
               subjectDepts.length
                 ? subjectDepts.length === 1
@@ -120,12 +128,16 @@ export default function AcademicStructureView({ navigation }) {
             onPress={() => setDeptSheet(true)}
           />
           <LabelledField
-            label="Taught in (classes)"
+            label={
+              jssAllowed
+                ? 'Taught in (classes)'
+                : 'Taught in (classes) — JSS hidden: SSS department only'
+            }
             placeholder="e.g. only the JSS classes — tap to tick"
             displayValue={
               subjectClasses.length
-                ? subjectClasses.length === 7
-                  ? 'All classes'
+                ? subjectClasses.length === CLASSES.length
+                  ? 'All shown classes'
                   : `${subjectClasses.length} classes selected`
                 : ''
             }
@@ -157,8 +169,12 @@ export default function AcademicStructureView({ navigation }) {
           />
           <SelectSheet
             visible={classSheet}
-            label="Classes this subject is taught in"
-            options={CLASSES}
+            label={
+              jssAllowed
+                ? 'Classes this subject is taught in'
+                : 'Classes this subject is taught in — SSS only'
+            }
+            options={CLASSES.filter((c) => jssAllowed || !c.value.startsWith('JSS'))}
             multiple
             selectedValues={subjectClasses}
             onToggle={toggleClass}

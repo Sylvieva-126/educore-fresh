@@ -3,7 +3,7 @@
  * period; tapping a period opens the subject sheet, then the teacher sheet.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Alert, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import SelectSheet from '../components/SelectSheet';
@@ -14,10 +14,9 @@ import { TimetableModel, AcademicStructureModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const PERIOD_TIMES = [
-  '08:00 – 08:40', '08:45 – 09:25', '09:30 – 10:10',
-  '10:40 – 11:20', '11:25 – 12:05', '12:10 – 12:50',
-];
+const ACTIVITIES = ['Break', 'Sports / PE', 'Study Time', 'Assembly', 'Clubs & Societies'].map(
+  (a) => ({ label: a, value: a }),
+);
 
 export default function TimetableBuilderView({ navigation, route }) {
   const [presenter] = useState(() => new TimetableBuilderPresenter(TimetableModel, AcademicStructureModel));
@@ -28,6 +27,8 @@ export default function TimetableBuilderView({ navigation, route }) {
   const [pendingSubject, setPendingSubject] = useState(null);
   const [subjectSheet, setSubjectSheet] = useState(false);
   const [teacherSheet, setTeacherSheet] = useState(false);
+  const [activityDay, setActivityDay] = useState(null);
+  const [activitySheet, setActivitySheet] = useState(false);
   const initialClassId = route.params && route.params.classId;
 
   useEffect(() => {
@@ -52,16 +53,45 @@ export default function TimetableBuilderView({ navigation, route }) {
   useActionErrorAlert(state.errorText);
 
   const draft = state.draft;
-  const filledCount = draft ? draft.slots.filter((s) => s.subject).length : 0;
+  const filledCount = draft
+    ? draft.slots.filter((s) => s.subject || s.activity).length
+    : 0;
 
-  const onSlotPress = (day, period) => {
-    setPendingSlot({ day, period });
+  const onSlotPress = (slot) => {
+    if (!slot) return;
+    if (slot.activity) {
+      Alert.alert(
+        'Remove this period?',
+        `${slot.day}, period ${slot.period} — ${slot.activity}. The rest of the day renumbers.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: () => presenter.removeSlot(slot.day, slot.period),
+          },
+        ],
+      );
+      return;
+    }
+    setPendingSlot({ day: slot.day, period: slot.period });
     setSubjectSheet(true);
   };
 
   const onSubjectPicked = (subject) => {
     setPendingSubject(subject);
     setSubjectSheet(false);
+    // Rule: a period's teacher must be the subject's assigned teacher.
+    const hasTeacher = state.teachers.some((t) => (t.subjects || []).includes(subject));
+    if (!hasTeacher) {
+      setPendingSlot(null);
+      setPendingSubject(null);
+      Alert.alert(
+        'No teacher assigned',
+        `No active teacher is assigned to ${subject} yet — assign it in the staff records first, or pick another subject.`,
+      );
+      return;
+    }
     setTeacherSheet(true);
   };
 
@@ -80,7 +110,7 @@ export default function TimetableBuilderView({ navigation, route }) {
       title={draft ? `Timetable — ${draft.classLabel}` : 'Build the weekly timetable'}
       subtitle={
         draft
-          ? `${filledCount}/30 periods filled · ${draft.status}`
+          ? `${filledCount}/${draft.slots.length} periods filled · ${draft.status}`
           : 'Choose a class to build its week'
       }
     >
@@ -98,25 +128,41 @@ export default function TimetableBuilderView({ navigation, route }) {
             </Text>
           ) : null}
 
-          {DAYS.map((day) => (
-            <View key={day}>
-              <Text style={styles.section}>{day}</Text>
-              <RecordList
-                items={PERIOD_TIMES.map((time, i) => {
-                  const slot = draft.slots.find((s) => s.day === day && s.period === i + 1);
-                  return {
-                    id: `${day}-${i + 1}`,
-                    title: `Period ${i + 1} · ${time}`,
-                    meta: slot && slot.subject ? `${slot.subject} · ${slot.teacherName}` : 'Empty — tap to fill',
-                    status: slot && slot.subject ? 'Filled' : 'Empty',
+          {DAYS.map((day) => {
+            const daySlots = draft.slots
+              .filter((s) => s.day === day)
+              .sort((a, b) => a.period - b.period);
+            return (
+              <View key={day}>
+                <Text style={styles.section}>{day}</Text>
+                <RecordList
+                  items={daySlots.map((slot) => ({
+                    id: `${day}-${slot.period}`,
+                    title: `Period ${slot.period} · ${slot.time}`,
+                    meta: slot.activity
+                      ? `${slot.activity} — no teacher needed`
+                      : slot.subject
+                        ? `${slot.subject} · ${slot.teacherName}`
+                        : 'Empty — tap to fill',
+                    status: slot.activity ? 'Activity' : slot.subject ? 'Filled' : 'Empty',
                     raw: slot,
-                  };
-                })}
-                onPressItem={(row) => onSlotPress(row.raw.day, row.raw.period)}
-                emptyText=""
-              />
-            </View>
-          ))}
+                  }))}
+                  onPressItem={(row) => onSlotPress(row.raw)}
+                  emptyText=""
+                />
+                {daySlots.length < 8 && draft.status !== 'Published' ? (
+                  <SecondaryButton
+                    label={`+ Add a period on ${day}`}
+                    disabled={state.saving}
+                    onPress={() => {
+                      setActivityDay(day);
+                      setActivitySheet(true);
+                    }}
+                  />
+                ) : null}
+              </View>
+            );
+          })}
 
           <SecondaryButton
             label={state.sendingReview ? 'Sending…' : 'Send for review'}
@@ -145,10 +191,23 @@ export default function TimetableBuilderView({ navigation, route }) {
       />
       <SelectSheet
         visible={teacherSheet}
-        label={`${pendingSubject || 'The subject'} — which teacher?`}
-        options={state.teachers.map((t) => ({ label: t.fullName, value: t.fullName }))}
+        label={`${pendingSubject || 'The subject'} — its assigned teacher`}
+        options={state.teachers
+          .filter((t) => (t.subjects || []).includes(pendingSubject))
+          .map((t) => ({ label: t.fullName, value: t.fullName }))}
         onSelect={onTeacherPicked}
         onClose={() => setTeacherSheet(false)}
+      />
+      <SelectSheet
+        visible={activitySheet}
+        label={`${activityDay || 'The day'} — which activity?`}
+        options={ACTIVITIES}
+        onSelect={(value) => {
+          setActivitySheet(false);
+          if (activityDay) presenter.addActivity(activityDay, value);
+          setActivityDay(null);
+        }}
+        onClose={() => setActivitySheet(false)}
       />
     </AdminScaffold>
   );

@@ -164,8 +164,15 @@ export default function StudentProfileView({ route, navigation }) {
           {/* The gap stops "View reports" and "Edit student" from touching. */}
           <View style={styles.moreButtons}>
             <SecondaryButton label="View reports" onPress={() => presenter.onViewReports()} />
-            <SecondaryButton label="Edit student" onPress={() => presenter.onEditStudent()} />
+            {s && s.status !== 'Withdrawn' ? (
+              <SecondaryButton label="Edit student" onPress={() => presenter.onEditStudent()} />
+            ) : null}
           </View>
+          {s && s.status === 'Withdrawn' ? (
+            <Text style={styles.muted}>
+              Withdrawn students are read-only — readmit them before editing their record.
+            </Text>
+          ) : null}
         </View>
       ) : null}
 

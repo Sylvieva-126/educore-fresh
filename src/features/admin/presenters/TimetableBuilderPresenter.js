@@ -5,6 +5,17 @@
  */
 import { ApiError } from '../api/client';
 
+const BASE_TIMES = [
+  '08:00 – 08:40', '08:45 – 09:25', '09:30 – 10:10',
+  '10:40 – 11:20', '11:25 – 12:05', '12:10 – 12:50',
+];
+const EXTRA_TIMES = { 7: '12:55 – 13:35', 8: '13:40 – 14:20' };
+
+/** Six fixed teaching periods, then up to two activity slots per day. */
+function periodTime(period) {
+  return BASE_TIMES[period - 1] || EXTRA_TIMES[period] || 'TBD';
+}
+
 export class TimetableBuilderPresenter {
   constructor(timetableModel, structureModel) {
     this.model = timetableModel;
@@ -99,6 +110,49 @@ export class TimetableBuilderPresenter {
       this._setState({
         saving: false,
         errorText: error instanceof ApiError ? error.message : 'The period was not saved.',
+      });
+    }
+  }
+
+  /** Append an activity period (Sports, PE, Study Time…) to a day, then save. */
+  async addActivity(day, activity) {
+    const draft = this.state.draft;
+    if (!draft || this.state.saving) return;
+    const nextPeriod = draft.slots.filter((s) => s.day === day).length + 1;
+    if (nextPeriod > 8) return;
+    const slots = [
+      ...draft.slots,
+      { day, period: nextPeriod, time: periodTime(nextPeriod), subject: null, teacherName: null, activity },
+    ];
+    this._setState({ saving: true, errorText: null });
+    try {
+      const saved = await this.model.saveDraft(draft.id, { slots });
+      this._setState({ saving: false, draft: saved.draft, notice: `${activity} added to ${day}.` });
+    } catch (error) {
+      this._setState({
+        saving: false,
+        errorText: error instanceof ApiError ? error.message : 'The period was not added.',
+      });
+    }
+  }
+
+  /** Remove a period from a day; the rest of that day renumbers so times stay aligned. */
+  async removeSlot(day, period) {
+    const draft = this.state.draft;
+    if (!draft || this.state.saving) return;
+    const rest = draft.slots.filter((s) => s.day !== day);
+    const dayRest = draft.slots
+      .filter((s) => s.day === day && s.period !== period)
+      .sort((a, b) => a.period - b.period)
+      .map((s, i) => ({ ...s, period: i + 1, time: periodTime(i + 1) }));
+    this._setState({ saving: true, errorText: null });
+    try {
+      const saved = await this.model.saveDraft(draft.id, { slots: [...rest, ...dayRest] });
+      this._setState({ saving: false, draft: saved.draft });
+    } catch (error) {
+      this._setState({
+        saving: false,
+        errorText: error instanceof ApiError ? error.message : 'The period was not removed.',
       });
     }
   }

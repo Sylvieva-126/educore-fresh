@@ -272,12 +272,12 @@ const TEACHERS = [
   {
     id: 'tch-1', fullName: 'Mrs. Ifeoma Eze', staffNumber: 'GST/014', phone: '+234 810 111 2020',
     email: 'ifeoma.eze@greenfield.edu.ng', status: 'Active', formClass: 'SSS1 A',
-    subjects: ['Biology', 'Agricultural Science'],
+    subjects: ['Biology', 'Agricultural Science', 'Chemistry'],
   },
   {
     id: 'tch-2', fullName: 'Mr. Ademola Adeyinka', staffNumber: 'GST/022', phone: '+234 810 222 3030',
     email: 'ademola.adeyinka@greenfield.edu.ng', status: 'Active', formClass: 'SSS2 A',
-    subjects: ['Economics', 'Commerce'],
+    subjects: ['Economics', 'Commerce', 'Government'],
   },
   {
     id: 'tch-3', fullName: 'Mr. Kabiru Lawal', staffNumber: 'GST/031', phone: '+234 810 333 4040',
@@ -287,12 +287,12 @@ const TEACHERS = [
   {
     id: 'tch-4', fullName: 'Miss Chioma Obi', staffNumber: 'GST/040', phone: '+234 810 444 5050',
     email: 'chioma.obi@greenfield.edu.ng', status: 'Active', formClass: 'JSS1 A',
-    subjects: ['English Language', 'Literature'],
+    subjects: ['English Language', 'Literature', 'Igbo Language'],
   },
   {
     id: 'tch-5', fullName: 'Mr. Danladi Yusuf', staffNumber: 'GST/053', phone: '+234 810 555 6060',
     email: 'danladi.yusuf@greenfield.edu.ng', status: 'Active', formClass: null,
-    subjects: ['Basic Science', 'Mathematics'],
+    subjects: ['Basic Science', 'Mathematics', 'Physics'],
   },
 ];
 
@@ -332,12 +332,12 @@ const SSS_DEPARTMENTS = {
 const SUBJECTS = [
   { id: 'sub-1', name: 'Mathematics', department: 'Core', departments: ['Core'], classes: CLASS_NAMES.slice() },
   { id: 'sub-2', name: 'English Language', department: 'Core', departments: ['Core'], classes: CLASS_NAMES.slice() },
-  { id: 'sub-3', name: 'Basic Science', department: 'Core', departments: ['Core'], classes: ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A'] },
+  { id: 'sub-3', name: 'Basic Science', department: 'JSS', departments: ['JSS'], classes: ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A'] },
   { id: 'sub-4', name: 'Igbo Language', department: 'Core', departments: ['Core'], classes: CLASS_NAMES.slice() },
   { id: 'sub-5', name: 'Biology', department: 'Science', departments: ['Science'], classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
   { id: 'sub-6', name: 'Chemistry', department: 'Science', departments: ['Science'], classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
   { id: 'sub-7', name: 'Physics', department: 'Science', departments: ['Science'], classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
-  { id: 'sub-8', name: 'Agricultural Science', department: 'Science', departments: ['Science', 'Business / Commercial'], classes: ['JSS3 A', 'SSS1 A'] },
+  { id: 'sub-8', name: 'Agricultural Science', department: 'JSS', departments: ['JSS', 'Science'], classes: ['JSS3 A', 'SSS1 A'] },
   { id: 'sub-9', name: 'Economics', department: 'Humanities / Arts', departments: ['Humanities / Arts', 'Business / Commercial'], classes: ['SSS1 A', 'SSS2 A', 'SSS3 A'] },
   { id: 'sub-10', name: 'Government', department: 'Humanities / Arts', departments: ['Humanities / Arts'], classes: ['SSS2 A', 'SSS3 A'] },
   { id: 'sub-11', name: 'Literature', department: 'Humanities / Arts', departments: ['Humanities / Arts'], classes: ['SSS2 A', 'SSS3 A'] },
@@ -369,19 +369,23 @@ const PERIOD_TIMES = [
 function makeSlots(classLabel, filledDays) {
   const subjects = SUBJECTS.filter((s) => s.classes.includes(classLabel)).map((s) => s.name);
   const teachers = TEACHERS.filter((t) => t.status === 'Active');
+  // A period's teacher is the subject's assigned teacher — the same rule the
+  // PATCH guard enforces. Subject cycle is offset per class so two classes
+  // never need the same teacher at the same time in the seeded drafts.
+  const teacherFor = (subject) => {
+    const match = teachers.find((t) => (t.subjects || []).includes(subject));
+    return match ? match.fullName : null;
+  };
   const offset = CLASS_NAMES.indexOf(classLabel);
   const slots = [];
   DAYS.forEach((day, d) => {
     PERIOD_TIMES.forEach((time, p) => {
       const base = { day, period: p + 1, time };
-      if (d < filledDays && subjects.length > 0 && teachers.length > 0) {
-        slots.push({
-          ...base,
-          subject: subjects[(d * PERIOD_TIMES.length + p) % subjects.length],
-          teacherName: teachers[(offset + d + p) % teachers.length].fullName,
-        });
+      if (d < filledDays && subjects.length > 0) {
+        const subject = subjects[(d * PERIOD_TIMES.length + p + offset) % subjects.length];
+        slots.push({ ...base, subject, teacherName: teacherFor(subject), activity: null });
       } else {
-        slots.push({ ...base, subject: null, teacherName: null });
+        slots.push({ ...base, subject: null, teacherName: null, activity: null });
       }
     });
   });
@@ -392,6 +396,27 @@ const TIMETABLE_DRAFTS = [
   { id: 'ttd-1', classLabel: 'JSS1 A', term: '2026/2027 · First Term', status: 'Ready to review', slots: makeSlots('JSS1 A', 5) },
   { id: 'ttd-2', classLabel: 'JSS1 B', term: '2026/2027 · First Term', status: 'Draft', slots: makeSlots('JSS1 B', 3) },
 ];
+
+/** Shared rules for validating a draft: completeness first, then clashes. */
+function timetableProblems(draft, allDrafts) {
+  const empty = draft.slots.filter((s) => !s.subject && !s.activity).length;
+  if (empty > 0) {
+    return `${empty} period${empty === 1 ? ' is' : 's are'} still empty — fill them first.`;
+  }
+  const others = allDrafts.filter((d) => d.id !== draft.id && d.status !== 'Draft');
+  for (const s of draft.slots) {
+    if (!s.teacherName) continue; // activities have no teacher, no clashes
+    for (const o of others) {
+      const twin = o.slots.find(
+        (t) => t.day === s.day && t.period === s.period && t.teacherName === s.teacherName,
+      );
+      if (twin) {
+        return `Timetable clash: ${s.teacherName} is timetabled for ${o.classLabel} at the same time (${s.day}, period ${s.period}).`;
+      }
+    }
+  }
+  return null;
+}
 
 function filterInvoices(query) {
   const q = (query.q || query.search || '').toString().trim().toLowerCase();
@@ -460,12 +485,16 @@ const ATTENDANCE_REGISTERS = (() => {
   let absentLeft = 12; // DASHBOARD.absentStudents — spread one per register
   let lateLeft = 4; // DASHBOARD.lateArrivals
   REGISTER_CLASSES.forEach((classLabel, ci) => {
+    // Only active students sit on a register; a class with no active students
+    // cannot record absences.
+    const roster = STUDENTS.filter((s) => s.classLabel === classLabel && s.status === 'Active');
     REGISTER_SLOTS.forEach((slot, si) => {
       const missing = (ci === 1 && si === 0) || (ci === 4 && si === 2) || (ci === 6 && si === 1);
       const submitted = !missing;
-      const absentCount = submitted && absentLeft > 0 ? 1 : 0;
+      const canMark = submitted && roster.length > 0;
+      const absentCount = canMark && absentLeft > 0 ? 1 : 0;
       if (absentCount) absentLeft -= 1;
-      const lateCount = submitted && lateLeft > 0 ? 1 : 0;
+      const lateCount = canMark && lateLeft > 0 ? 1 : 0;
       if (lateCount) lateLeft -= 1;
       rows.push({
         id: `reg-${ci}-${si}`,
@@ -481,6 +510,37 @@ const ATTENDANCE_REGISTERS = (() => {
     });
   });
   return rows;
+})();
+
+/* AD17 — per-student rows behind each submitted register. The first listed
+   student carries the register's absence, the second the lateness, so the
+   counts on the register and the rows always agree. */
+const ATTENDANCE_ENTRIES = (() => {
+  const entries = [];
+  ATTENDANCE_REGISTERS.forEach((reg) => {
+    if (reg.status !== 'Submitted') return;
+    const roster = STUDENTS.filter((s) => s.classLabel === reg.classLabel && s.status === 'Active');
+    let absentToPlace = reg.absentCount;
+    let lateToPlace = reg.lateCount;
+    roster.forEach((stu, i) => {
+      let status = 'Present';
+      if (absentToPlace > 0 && i === 0) {
+        status = 'Absent';
+        absentToPlace -= 1;
+      } else if (lateToPlace > 0 && i === 1) {
+        status = 'Late';
+        lateToPlace -= 1;
+      }
+      entries.push({
+        id: `ent-${reg.id}-${stu.id}`,
+        registerId: reg.id,
+        studentId: stu.id,
+        studentName: stu.fullName,
+        status,
+      });
+    });
+  });
+  return entries;
 })();
 
 // Keep AD01's headline numbers derived from the same register rows.
@@ -687,6 +747,25 @@ function todayLabel() {
 let nextStudentId = 13;
 let nextAdmissionNumber = 152;
 
+// AD18 — the grading policy the office edits (CA vs exam weight, pass mark,
+// and what score each grade starts at).
+const ASSESSMENT_POLICY = {
+  id: 'pol-1',
+  term: '2026/2027 · First Term',
+  caWeight: 30,
+  examWeight: 70,
+  passMark: 40,
+  locked: false,
+  grades: [
+    { grade: 'A', minScore: 70, remark: 'Excellent' },
+    { grade: 'B', minScore: 60, remark: 'Very good' },
+    { grade: 'C', minScore: 50, remark: 'Good' },
+    { grade: 'D', minScore: 45, remark: 'Fair' },
+    { grade: 'E', minScore: 40, remark: 'Pass' },
+    { grade: 'F', minScore: 0, remark: 'Fail' },
+  ],
+};
+
 export async function demoRequest({ path: route, method = 'GET', query = {}, body = null }) {
   await new Promise((resolve) => setTimeout(resolve, 250)); // let loading states show
   const m = String(method || 'GET').toUpperCase();
@@ -738,7 +817,13 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     if (seg.length === 2) {
       if (m === 'GET') return student || STUDENTS[0];
       if (m === 'PATCH' && student) {
-        // AD03 — edit core details
+        // AD03 — edit core details; withdrawn students are read-only
+        if (student.status === 'Withdrawn') {
+          return {
+            ok: false,
+            error: 'Withdrawn students are read-only — readmit the student before editing their record.',
+          };
+        }
         const b = body || {};
         if (b.firstName || b.lastName) {
           const oldParts = String(student.fullName || '').split(' ');
@@ -811,6 +896,22 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       const classes = Array.isArray(body && body.classes)
         ? body.classes.filter((c) => CLASS_NAMES.includes(c))
         : [];
+      const KNOWN_DEPARTMENTS = ['Core', 'JSS', 'Science', 'Humanities / Arts', 'Business / Commercial'];
+      const unknownDept = departments.find((d) => !KNOWN_DEPARTMENTS.includes(d));
+      if (unknownDept) {
+        return { ok: false, error: `${unknownDept} is not one of the school's departments.` };
+      }
+      // JSS classes take Core or JSS subjects only — SSS departments lock the
+      // class list to SSS.
+      const allowsJss = departments.includes('Core') || departments.includes('JSS');
+      const jssClass = classes.find((c) => c.startsWith('JSS'));
+      if (!allowsJss && jssClass) {
+        return {
+          ok: false,
+          error:
+            'Science, Humanities and Business subjects are SSS only — JSS classes take Core or JSS subjects.',
+        };
+      }
       if (!name) return { ok: false, error: 'Name the subject.' };
       if (departments.length === 0) {
         return { ok: false, error: 'Tag at least one department it belongs to.' };
@@ -874,8 +975,36 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
         return { ok: false, error: 'This timetable is published — reopen it before editing.' };
       }
       if (body && Array.isArray(body.slots)) {
-        const bad = body.slots.find((s) => s.subject && !s.teacherName);
-        if (bad) return { ok: false, error: `Pick a teacher for ${bad.day}, period ${bad.period}.` };
+        // Rule 1: a period is a taught subject (with its assigned teacher) or
+        // an activity — never both, and activities need no teacher.
+        const active = TEACHERS.filter((t) => t.status === 'Active');
+        for (const s of body.slots) {
+          if (s.subject && s.activity) {
+            return {
+              ok: false,
+              error: `${s.day}, period ${s.period}: a period is either a subject or an activity, not both.`,
+            };
+          }
+          if (s.subject && !s.teacherName) {
+            return { ok: false, error: `Pick a teacher for ${s.day}, period ${s.period}.` };
+          }
+          if (s.subject && s.teacherName) {
+            const teacher = active.find((t) => t.fullName === s.teacherName);
+            if (!teacher) return { ok: false, error: `${s.teacherName} is not an active teacher.` };
+            if (!(teacher.subjects || []).includes(s.subject)) {
+              return {
+                ok: false,
+                error: `${s.teacherName} does not teach ${s.subject} — pick the subject's assigned teacher.`,
+              };
+            }
+          }
+          if (s.activity && s.teacherName) {
+            return {
+              ok: false,
+              error: `${s.activity} needs no teacher — leave the teacher empty.`,
+            };
+          }
+        }
         draft.slots = body.slots;
       }
       return { ok: true, draft };
@@ -884,28 +1013,8 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   if (seg[0] === 'timetable-drafts' && seg.length === 3 && seg[2] === 'validate' && m === 'POST') {
     const draft = TIMETABLE_DRAFTS.find((d) => d.id === seg[1]);
     if (!draft) return { ok: false, error: 'Timetable draft not found.' };
-    const empty = draft.slots.filter((s) => !s.subject).length;
-    if (empty > 0) {
-      return {
-        ok: false,
-        error: `${empty} period${empty === 1 ? ' is' : 's are'} still empty — fill them before publishing.`,
-      };
-    }
-    const others = TIMETABLE_DRAFTS.filter((d) => d.id !== draft.id && d.status !== 'Draft');
-    let clash = null;
-    for (const s of draft.slots) {
-      for (const o of others) {
-        const twin = o.slots.find(
-          (t) => t.day === s.day && t.period === s.period && t.teacherName && t.teacherName === s.teacherName,
-        );
-        if (twin) {
-          clash = `${s.teacherName} is timetabled for ${o.classLabel} at the same time (${s.day}, period ${s.period}).`;
-          break;
-        }
-      }
-      if (clash) break;
-    }
-    if (clash) return { ok: false, error: `Timetable clash: ${clash}` };
+    const problem = timetableProblems(draft, TIMETABLE_DRAFTS);
+    if (problem) return { ok: false, error: problem };
     return { ok: true, conflicts: [] };
   }
   if (seg[0] === 'timetable-drafts' && seg.length === 3 && seg[2] === 'request-review' && m === 'POST') {
@@ -914,7 +1023,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     if (draft.status === 'Published') {
       return { ok: false, error: 'This timetable is already published.' };
     }
-    const empty = draft.slots.filter((s) => !s.subject).length;
+    const empty = draft.slots.filter((s) => !s.subject && !s.activity).length;
     if (empty > 0) {
       return {
         ok: false,
@@ -933,15 +1042,116 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     if (draft.status !== 'Ready to review') {
       return { ok: false, error: 'Send the timetable for review first — then publish it.' };
     }
-    const empty = draft.slots.filter((s) => !s.subject).length;
-    if (empty > 0) {
-      return {
-        ok: false,
-        error: `${empty} period${empty === 1 ? ' is' : 's are'} still empty — fill them before publishing.`,
-      };
-    }
+    // Publishing runs the full check itself: nothing goes out with empty
+    // periods or a teacher clash, even if the office skipped "validate".
+    const problem = timetableProblems(draft, TIMETABLE_DRAFTS);
+    if (problem) return { ok: false, error: problem };
     draft.status = 'Published';
     return { ok: true, draft };
+  }
+
+  // AD16/AD17 — attendance: overview, today's registers, per-student rows,
+  // and the office's corrections (absent → present etc.).
+  if (seg[0] === 'attendance' && seg[1] === 'overview' && seg.length === 2 && m === 'GET') {
+    return {
+      ok: true,
+      submitted: ATTENDANCE_REGISTERS.filter((r) => r.status === 'Submitted').length,
+      expected: ATTENDANCE_REGISTERS.length,
+      absentStudents: ATTENDANCE_REGISTERS.reduce((n, r) => n + r.absentCount, 0),
+      lateArrivals: ATTENDANCE_REGISTERS.reduce((n, r) => n + r.lateCount, 0),
+      registers: ATTENDANCE_REGISTERS,
+    };
+  }
+  if (seg[0] === 'attendance' && seg[1] === 'registers' && seg.length === 2 && m === 'GET') {
+    return paginate(ATTENDANCE_REGISTERS, query.page);
+  }
+  if (seg[0] === 'attendance' && seg[1] === 'registers' && seg.length === 3 && m === 'GET') {
+    const register = ATTENDANCE_REGISTERS.find((r) => r.id === seg[2]);
+    if (!register) return { ok: false, error: 'Register not found.' };
+    return {
+      ok: true,
+      register,
+      entries: ATTENDANCE_ENTRIES.filter((e) => e.registerId === register.id),
+    };
+  }
+  if (
+    seg[0] === 'attendance' && seg[1] === 'registers' && seg.length === 4 &&
+    seg[3] === 'corrections' && m === 'POST'
+  ) {
+    const register = ATTENDANCE_REGISTERS.find((r) => r.id === seg[2]);
+    if (!register) return { ok: false, error: 'Register not found.' };
+    if (register.status !== 'Submitted') {
+      return {
+        ok: false,
+        error: 'That register was never submitted — the teacher has to submit it before corrections.',
+      };
+    }
+    const status = (body && body.status) || '';
+    if (!['Present', 'Absent', 'Late', 'Excused'].includes(status)) {
+      return { ok: false, error: 'Pick Present, Absent, Late or Excused.' };
+    }
+    const entry = ATTENDANCE_ENTRIES.find(
+      (e) => e.registerId === register.id && e.studentId === (body && body.studentId),
+    );
+    if (!entry) return { ok: false, error: 'That student is not on this register.' };
+    entry.status = status;
+    // The register's counts stay derived from its rows.
+    register.absentCount = ATTENDANCE_ENTRIES.filter(
+      (e) => e.registerId === register.id && e.status === 'Absent',
+    ).length;
+    register.lateCount = ATTENDANCE_ENTRIES.filter(
+      (e) => e.registerId === register.id && e.status === 'Late',
+    ).length;
+    return { ok: true, register, entry };
+  }
+
+  // AD18 — assessment policy (grading rules). One active policy per term;
+  // the office edits it, the server checks the arithmetic, lock freezes it.
+  if (seg[0] === 'assessment-policies' && seg.length === 1) {
+    if (m === 'GET') return paginate([ASSESSMENT_POLICY], query.page);
+    if (m === 'POST') {
+      if (ASSESSMENT_POLICY.locked) {
+        return {
+          ok: false,
+          error: 'The grading policy is locked — it cannot change while marks are being entered.',
+        };
+      }
+      const b = body || {};
+      const ca = Number(b.caWeight);
+      const exam = Number(b.examWeight);
+      const pass = Number(b.passMark);
+      if (!Number.isFinite(ca) || !Number.isFinite(exam) || ca < 0 || exam < 0) {
+        return { ok: false, error: 'Enter the CA and exam weights as numbers.' };
+      }
+      if (ca + exam !== 100) {
+        return { ok: false, error: `CA (${ca}%) + exam (${exam}%) must add up to exactly 100%.` };
+      }
+      if (!Number.isFinite(pass) || pass < 0 || pass > 100) {
+        return { ok: false, error: 'The pass mark must be between 0 and 100.' };
+      }
+      const grades = Array.isArray(b.grades) ? b.grades : ASSESSMENT_POLICY.grades;
+      for (let i = 1; i < grades.length; i++) {
+        if (Number(grades[i - 1].minScore) <= Number(grades[i].minScore)) {
+          return {
+            ok: false,
+            error: `Grade ${grades[i - 1].grade} must start above grade ${grades[i].grade} — check the minimum scores.`,
+          };
+        }
+      }
+      ASSESSMENT_POLICY.caWeight = ca;
+      ASSESSMENT_POLICY.examWeight = exam;
+      ASSESSMENT_POLICY.passMark = pass;
+      if (Array.isArray(b.grades)) {
+        ASSESSMENT_POLICY.grades = grades.map((g) => ({ ...g, minScore: Number(g.minScore) }));
+      }
+      return { ok: true, policy: ASSESSMENT_POLICY };
+    }
+  }
+  if (
+    seg[0] === 'assessment-policies' && seg.length === 3 && seg[2] === 'lock' && m === 'POST'
+  ) {
+    ASSESSMENT_POLICY.locked = true;
+    return { ok: true, policy: ASSESSMENT_POLICY };
   }
 
   // AD21 — fee plans: list, create, and issue the bills to a class
