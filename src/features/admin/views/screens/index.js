@@ -6,6 +6,8 @@
 import AdminHomeView from './AdminHomeView';
 import StudentListView from './StudentListView';
 import StudentProfileView from './StudentProfileView';
+import GuardianListView from './GuardianListView';
+import GuardianProfileView from './GuardianProfileView';
 import StudentFormView from './StudentFormView';
 import InvoiceListView from './InvoiceListView';
 import InvoiceDetailView from './InvoiceDetailView';
@@ -15,6 +17,7 @@ import CalendarView from './CalendarView';
 import AttendanceOverviewView from './AttendanceOverviewView';
 import ResultsReviewView from './ResultsReviewView';
 import PaymentsBoardView from './PaymentsBoardView';
+import PaymentDetailView from './PaymentDetailView';
 import MessageInboxView from './MessageInboxView';
 import ConversationView from './ConversationView';
 import ComplaintsListView from './ComplaintsListView';
@@ -36,8 +39,18 @@ export const ADMIN_SCREENS = {
     Component: StudentProfileView,
     tab: 'Students',
   },
-  AD05: { name: 'GuardianList', title: 'Parents and guardians list', tab: 'More' },
-  AD06: { name: 'GuardianProfile', title: 'Guardian profile and child links', tab: 'More' },
+  AD05: {
+    name: 'GuardianList',
+    title: 'Parents and guardians list',
+    Component: GuardianListView,
+    tab: 'More',
+  },
+  AD06: {
+    name: 'GuardianProfile',
+    title: 'Guardian profile and child links',
+    Component: GuardianProfileView,
+    tab: 'More',
+  },
   AD07: { name: 'TeacherList', title: 'Teachers list', tab: 'More' },
   AD08: { name: 'TeacherForm', title: 'Register or edit a teacher', tab: 'More' },
   AD09: { name: 'TeacherProfile', title: 'Teacher profile and responsibilities', tab: 'More' },
@@ -81,7 +94,12 @@ export const ADMIN_SCREENS = {
     Component: PaymentsBoardView,
     tab: 'Fees',
   },
-  AD25: { name: 'PaymentDetail', title: 'Payment detail and refund review', tab: 'Fees' },
+  AD25: {
+    name: 'PaymentDetail',
+    title: 'Payment detail and refund review',
+    Component: PaymentDetailView,
+    tab: 'Fees',
+  },
   AD26: { name: 'PromotionPreview', title: 'Preview promotion or completion', tab: 'More' },
   AD27: { name: 'PromotionApprove', title: 'Approve promotion and graduation', tab: 'More' },
   AD28: { name: 'Notices', title: 'School announcements', Component: NoticesView, tab: 'More' },

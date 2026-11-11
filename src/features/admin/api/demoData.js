@@ -204,6 +204,59 @@ function applyInvoicePayment(invoice, amount, method, reference) {
   return { applied, row };
 }
 
+// AD25 — refund requests raised against payments. State machine:
+// Pending → Approved / Rejected → Refunded (Paystack execute or manual).
+const REFUND_REQUESTS = [
+  {
+    id: 'rfr-1',
+    paymentId: 'pay-2',
+    reference: 'PSK-7719-1102-B',
+    studentName: 'Daniel Ogun',
+    amountLabel: '₦30,000',
+    reason: 'Duplicate payment — the guardian also paid at the office.',
+    status: 'Pending',
+    createdAt: '2026-11-09',
+  },
+];
+
+// AD05/AD06 — guardians and the children linked to them. Student ids match
+// the STUDENTS seed so a child row opens that student's profile.
+const GUARDIANS = [
+  {
+    id: 'gd-1', fullName: 'Mrs. Ngozi Okafor', phone: '+234 803 111 2233', email: 'ngozi.okafor@example.com',
+    relationship: 'Mother', status: 'Active', childrenCount: 1,
+    children: [{ studentId: 1, name: 'Amara Okafor', classLabel: 'SSS1 A', relationship: 'Mother' }],
+  },
+  {
+    id: 'gd-2', fullName: 'Mr. Chibueze Eze', phone: '+234 805 222 3344', email: 'chibueze.eze@example.com',
+    relationship: 'Father', status: 'Active', childrenCount: 2,
+    children: [
+      { studentId: 2, name: 'Chiamaka Eze', classLabel: 'SSS1 A', relationship: 'Father' },
+      { studentId: 12, name: 'Blessing Adeyemi', classLabel: 'JSS3 A', relationship: 'Father' },
+    ],
+  },
+  {
+    id: 'gd-3', fullName: 'Alhaji Sani Musa', phone: '+234 806 333 4455', email: 'sani.musa@example.com',
+    relationship: 'Father', status: 'Invited', childrenCount: 1,
+    children: [{ studentId: 7, name: 'Zainab Musa', classLabel: 'SSS3 A', relationship: 'Father' }],
+  },
+  {
+    id: 'gd-4', fullName: 'Mrs. Funke Balogun', phone: '+234 807 444 5566', email: 'funke.balogun@example.com',
+    relationship: 'Mother', status: 'Active', childrenCount: 1,
+    children: [{ studentId: 4, name: 'Tunde Balogun', classLabel: 'SSS2 A', relationship: 'Mother' }],
+  },
+  {
+    id: 'gd-5', fullName: 'Mr. Emeka Bello', phone: '+234 808 555 6677', email: 'emeka.bello@example.com',
+    relationship: 'Father', status: 'Active', childrenCount: 1,
+    children: [{ studentId: 5, name: 'Fatima Bello', classLabel: 'SSS2 A', relationship: 'Father' }],
+  },
+  {
+    id: 'gd-6', fullName: 'Mrs. Adaeze Ogun', phone: '+234 809 666 7788', email: 'adaeze.ogun@example.com',
+    relationship: 'Mother', status: 'Active', childrenCount: 1,
+    children: [{ studentId: 6, name: 'Daniel Ogun', classLabel: 'SSS3 A', relationship: 'Mother' }],
+  },
+];
+
 function filterInvoices(query) {
   const q = (query.q || query.search || '').toString().trim().toLowerCase();
   const status = query.status && query.status !== 'all' ? query.status : null;
@@ -672,6 +725,73 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   // AD24 — payments, settlements, reconciliation, exceptions
   if (seg[0] === 'finance' && seg[1] === 'payments' && seg.length === 2 && m === 'GET') {
     return paginate(PAYMENTS, query.page);
+  }
+
+  // AD25 — one payment (payment detail)
+  const paymentRow =
+    seg[0] === 'finance' && seg[1] === 'payments' && seg[2]
+      ? PAYMENTS.find((p) => p.id === seg[2])
+      : null;
+  if (paymentRow && seg.length === 3 && m === 'GET') return paymentRow;
+
+  // AD25 — refund requests and their state machine
+  if (seg[0] === 'finance' && seg[1] === 'refund-requests' && seg.length === 2) {
+    if (m === 'GET') {
+      const rows = query.paymentId
+        ? REFUND_REQUESTS.filter((r) => r.paymentId === query.paymentId)
+        : REFUND_REQUESTS;
+      return paginate(rows, query.page);
+    }
+    if (m === 'POST') {
+      const payment = PAYMENTS.find((p) => p.id === (body && body.paymentId));
+      if (!payment) return { ok: false, error: 'Unknown payment.' };
+      const request = {
+        id: `rfr-${Date.now()}`,
+        paymentId: payment.id,
+        reference: payment.reference,
+        studentName: payment.studentName,
+        amountLabel: payment.amountLabel,
+        reason: (body && body.reason) || '—',
+        status: 'Pending',
+        createdAt: todayLabel(),
+      };
+      REFUND_REQUESTS.unshift(request);
+      return request;
+    }
+  }
+  const refundRow =
+    seg[0] === 'finance' && seg[1] === 'refund-requests' && seg[2]
+      ? REFUND_REQUESTS.find((r) => r.id === seg[2])
+      : null;
+  if (refundRow && seg[3] === 'decision' && m === 'POST') {
+    refundRow.status = (body && body.action) === 'approve' ? 'Approved' : 'Rejected';
+    return { ok: true, status: refundRow.status };
+  }
+  if (refundRow && seg[3] === 'execute' && m === 'POST') {
+    refundRow.status = 'Refunded';
+    return { ok: true, status: 'Refunded' };
+  }
+  if (refundRow && seg[3] === 'manual-confirmation' && m === 'POST') {
+    refundRow.status = 'Refunded';
+    return { ok: true, status: 'Refunded' };
+  }
+
+  // AD05/AD06 — guardians list and one guardian's profile with child links
+  if (seg[0] === 'guardians' && seg.length === 1 && m === 'GET') {
+    const q = (query.q || query.search || '').toString().trim().toLowerCase();
+    const status = query.status && query.status !== 'all' ? query.status : null;
+    const rows = GUARDIANS.filter((g) => {
+      if (status && g.status !== status) return false;
+      if (q) {
+        const kids = g.children.map((c) => c.name).join(' ');
+        return `${g.fullName} ${g.email} ${g.phone} ${kids}`.toLowerCase().includes(q);
+      }
+      return true;
+    });
+    return paginate(rows, query.page);
+  }
+  if (seg[0] === 'guardians' && seg.length === 2 && m === 'GET') {
+    return GUARDIANS.find((g) => g.id === seg[1]) || null;
   }
   if (seg[0] === 'finance' && seg[1] === 'settlements' && seg.length === 2 && m === 'GET') {
     return paginate(SETTLEMENTS, query.page);

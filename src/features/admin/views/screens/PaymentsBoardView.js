@@ -93,7 +93,9 @@ export default function PaymentsBoardView({ navigation }) {
               title: `${p.studentName} · ${p.amountLabel}`,
               meta: `${p.channel} · ${p.reference} · ${p.paidAt}`,
               status: p.status,
+              raw: p,
             }))}
+            onPressItem={(row) => presenter.onOpenPayment(row.raw)}
             emptyText="No payments recorded yet."
           />
 

@@ -60,6 +60,13 @@ export class PaymentsBoardPresenter {
     }
   }
 
+  /** Open one ledger payment's detail and refund review (AD25). */
+  onOpenPayment(payment) {
+    if (this._navigation && payment) {
+      this._navigation.navigate('PaymentDetail', { paymentId: payment.id });
+    }
+  }
+
   /** Match a settlement's payment to the invoice it covers. */
   async reconcile(settlement) {
     if (this.state.busyId) return;
