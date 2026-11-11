@@ -160,14 +160,49 @@ function feeStatusFor(id) {
 /* ── AD22 — Invoices ────────────────────────────────────────────────── */
 
 const INVOICES = [
-  { id: 'inv-1', number: 'INV-2026-0141', studentName: 'Amara Okafor', planName: 'First Term tuition 2026/2027', amountLabel: '₦85,000', balanceLabel: 'Balance ₦0', status: 'Paid', dueDate: '2026-09-28' },
-  { id: 'inv-2', number: 'INV-2026-0142', studentName: 'Chiamaka Eze', planName: 'First Term tuition 2026/2027', amountLabel: '₦85,000', balanceLabel: 'Balance ₦45,000', status: 'PartiallyPaid', dueDate: '2026-09-28' },
-  { id: 'inv-3', number: 'INV-2026-0144', studentName: 'Tunde Balogun', planName: 'Tuition + boarding 2026/2027', amountLabel: '₦120,000', balanceLabel: 'Balance ₦120,000', status: 'Overdue', dueDate: '2026-09-28' },
-  { id: 'inv-4', number: 'INV-2026-0145', studentName: 'Fatima Bello', planName: 'First Term tuition 2026/2027', amountLabel: '₦85,000', balanceLabel: 'Balance ₦0', status: 'Paid', dueDate: '2026-09-28' },
-  { id: 'inv-5', number: 'INV-2026-0146', studentName: 'Daniel Ogun', planName: 'First Term tuition 2026/2027', amountLabel: '₦85,000', balanceLabel: 'Balance ₦30,000', status: 'PartiallyPaid', dueDate: '2026-09-28' },
-  { id: 'inv-6', number: 'INV-2026-0148', studentName: 'Emeka Nwosu', planName: 'First Term tuition 2026/2027', amountLabel: '₦85,000', balanceLabel: 'Balance ₦85,000', status: 'Draft', dueDate: '2026-09-28' },
-  { id: 'inv-7', number: 'INV-2026-0147', studentName: 'Zainab Musa', planName: 'First Term tuition 2026/2027', amountLabel: '₦85,000', balanceLabel: 'Balance ₦0', status: 'Paid', dueDate: '2026-09-28' },
+  { id: 'inv-1', number: 'INV-2026-0141', studentName: 'Amara Okafor', planName: 'First Term tuition 2026/2027', amountLabel: '₦85,000', balanceLabel: 'Balance ₦0', status: 'Paid', dueDate: '2026-09-28', amount: 85000, paid: 85000 },
+  { id: 'inv-2', number: 'INV-2026-0142', studentName: 'Chiamaka Eze', planName: 'First Term tuition 2026/2027', amountLabel: '₦85,000', balanceLabel: 'Balance ₦45,000', status: 'PartiallyPaid', dueDate: '2026-09-28', amount: 85000, paid: 40000 },
+  { id: 'inv-3', number: 'INV-2026-0144', studentName: 'Tunde Balogun', planName: 'Tuition + boarding 2026/2027', amountLabel: '₦120,000', balanceLabel: 'Balance ₦120,000', status: 'Overdue', dueDate: '2026-09-28', amount: 120000, paid: 0 },
+  { id: 'inv-4', number: 'INV-2026-0145', studentName: 'Fatima Bello', planName: 'First Term tuition 2026/2027', amountLabel: '₦85,000', balanceLabel: 'Balance ₦0', status: 'Paid', dueDate: '2026-09-28', amount: 85000, paid: 85000 },
+  { id: 'inv-5', number: 'INV-2026-0146', studentName: 'Daniel Ogun', planName: 'First Term tuition 2026/2027', amountLabel: '₦85,000', balanceLabel: 'Balance ₦30,000', status: 'PartiallyPaid', dueDate: '2026-09-28', amount: 85000, paid: 55000 },
+  { id: 'inv-6', number: 'INV-2026-0148', studentName: 'Emeka Nwosu', planName: 'First Term tuition 2026/2027', amountLabel: '₦85,000', balanceLabel: 'Balance ₦85,000', status: 'Draft', dueDate: '2026-09-28', amount: 85000, paid: 0 },
+  { id: 'inv-7', number: 'INV-2026-0147', studentName: 'Zainab Musa', planName: 'First Term tuition 2026/2027', amountLabel: '₦85,000', balanceLabel: 'Balance ₦0', status: 'Paid', dueDate: '2026-09-28', amount: 85000, paid: 85000 },
 ];
+
+// AD23 — payments already recorded on each invoice (office + online).
+const INVOICE_PAYMENTS = {
+  'inv-2': [
+    { id: 'ipm-1', method: 'Paystack (online)', amountLabel: '₦40,000', reference: 'PSK-2201-0920-E', paidAt: '2026-09-20' },
+    { id: 'ipm-2', method: 'Cash (office)', amountLabel: '₦15,000', reference: 'RCP-0112', paidAt: '2026-09-05' },
+  ],
+  'inv-3': [],
+  'inv-5': [
+    { id: 'ipm-3', method: 'Transfer (office)', amountLabel: '₦55,000', reference: 'RCP-0134', paidAt: '2026-09-18' },
+  ],
+};
+
+const naira = (n) => `₦${Number(n || 0).toLocaleString('en-NG')}`;
+
+function applyInvoicePayment(invoice, amount, method, reference) {
+  // Money rules live in the Java API on the real backend. The demo keeps the
+  // same rules locally: never overpay, and status follows balance + due date.
+  const applied = Math.max(0, Math.min(amount, invoice.amount - invoice.paid));
+  invoice.paid += applied;
+  const balance = invoice.amount - invoice.paid;
+  invoice.balanceLabel = `Balance ${naira(balance)}`;
+  invoice.status =
+    balance === 0 ? 'Paid' : invoice.dueDate < todayLabel() ? 'Overdue' : 'PartiallyPaid';
+  const row = {
+    id: `ipm-${Date.now()}`,
+    method: `${method} (office)`,
+    amountLabel: naira(applied),
+    reference: reference || 'Office receipt',
+    paidAt: todayLabel(),
+  };
+  INVOICE_PAYMENTS[invoice.id] = INVOICE_PAYMENTS[invoice.id] || [];
+  INVOICE_PAYMENTS[invoice.id].push(row);
+  return { applied, row };
+}
 
 function filterInvoices(query) {
   const q = (query.q || query.search || '').toString().trim().toLowerCase();
@@ -555,6 +590,22 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     return paginate(filterInvoices(query), query.page);
   }
 
+  // AD23 — one invoice, the payments recorded on it, office payments
+  const invoice =
+    seg[0] === 'finance' && seg[1] === 'invoices' && seg[2]
+      ? INVOICES.find((i) => i.id === seg[2])
+      : null;
+  if (invoice && seg.length === 3 && m === 'GET') return invoice;
+  if (invoice && seg[3] === 'payments' && m === 'GET') {
+    return { items: INVOICE_PAYMENTS[invoice.id] || [] };
+  }
+  if (invoice && seg[3] === 'manual-payments' && m === 'POST') {
+    const amount = Number(body && body.amount);
+    if (!amount || amount <= 0) return { ok: false, error: 'Enter an amount in naira.' };
+    const result = applyInvoicePayment(invoice, amount, (body && body.method) || 'Cash', body && body.reference);
+    return { ok: true, applied: result.applied, balanceAfter: invoice.amount - invoice.paid };
+  }
+
   // AD16 — attendance overview, registers, correction requests
   if (seg[0] === 'attendance' && seg[1] === 'overview' && m === 'GET') {
     return {
@@ -632,6 +683,9 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       if (payment) {
         payment.status = 'Reconciled';
         payment.invoiceNumber = (body && body.invoiceNumber) || payment.invoiceNumber || '—';
+        // The board's badge reads the settlement row, so flip it too.
+        const settlement = SETTLEMENTS.find((s) => s.reference === payment.reference);
+        if (settlement) settlement.status = 'Matched';
       }
       RECONCILIATIONS.unshift({
         id: `rec-${Date.now()}`,

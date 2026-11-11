@@ -161,6 +161,7 @@ export const endpoints = {
     issuePlan: 'finance/fee-plans/{planId}/issue', // POST AD21
     invoices: 'finance/invoices', // GET  AD22
     invoiceById: 'finance/invoices/{invoiceId}', // GET  AD23
+    invoicePayments: 'finance/invoices/{invoiceId}/payments', // GET + POST AD23
     manualPayments: 'finance/invoices/{invoiceId}/manual-payments', // POST AD23
     receiptById: 'finance/receipts/{receiptId}', // GET  AD23
     adjustmentRequests: 'finance/adjustment-requests', // GET/POST AD23

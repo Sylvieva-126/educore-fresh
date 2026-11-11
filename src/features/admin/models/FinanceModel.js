@@ -45,6 +45,11 @@ export const FinanceModel = {
     return api.get(endpoints.finance.invoiceById, { invoiceId });
   },
 
+  /** The payments already recorded on one invoice (AD23). */
+  async invoicePayments(invoiceId) {
+    return api.get(endpoints.finance.invoicePayments, { invoiceId });
+  },
+
   /** Record cash/transfer paid at the school office (Paystack is the online route). */
   async manualPayment(invoiceId, body) {
     return api.post(endpoints.finance.manualPayments, { invoiceId }, body);

@@ -8,6 +8,7 @@ import StudentListView from './StudentListView';
 import StudentProfileView from './StudentProfileView';
 import StudentFormView from './StudentFormView';
 import InvoiceListView from './InvoiceListView';
+import InvoiceDetailView from './InvoiceDetailView';
 import NoticesView from './NoticesView';
 import ImportsExportsView from './ImportsExportsView';
 import CalendarView from './CalendarView';
@@ -68,7 +69,12 @@ export const ADMIN_SCREENS = {
   AD20: { name: 'Reports', title: 'Reports', tab: 'Academics' },
   AD21: { name: 'FeePlans', title: 'Set fees and issue bills', tab: 'Fees' },
   AD22: { name: 'InvoiceList', title: 'Student invoices', Component: InvoiceListView, tab: 'Fees' },
-  AD23: { name: 'InvoiceDetail', title: 'Invoice detail and office payment', tab: 'Fees' },
+  AD23: {
+    name: 'InvoiceDetail',
+    title: 'Invoice detail and office payment',
+    Component: InvoiceDetailView,
+    tab: 'Fees',
+  },
   AD24: {
     name: 'PaymentsBoard',
     title: 'Payments and money checks',
