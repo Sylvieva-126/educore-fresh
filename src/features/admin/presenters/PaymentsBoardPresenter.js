@@ -67,6 +67,17 @@ export class PaymentsBoardPresenter {
     }
   }
 
+  /** A matched settlement opens the payment it settled (its money trail). */
+  onOpenSettlementPayment(settlement) {
+    if (!this._navigation || !settlement) return;
+    const payment = this.state.payments.find((p) => p.reference === settlement.reference);
+    if (payment) {
+      this._navigation.navigate('PaymentDetail', { paymentId: payment.id });
+    } else {
+      this._setState({ notice: 'No ledger row carries this reference yet.' });
+    }
+  }
+
   /** Match a settlement's payment to the invoice it covers. */
   async reconcile(settlement) {
     if (this.state.busyId) return;

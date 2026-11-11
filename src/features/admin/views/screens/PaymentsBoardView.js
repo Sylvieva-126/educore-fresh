@@ -82,6 +82,7 @@ export default function PaymentsBoardView({ navigation }) {
             }))}
             onPressItem={(row) => {
               if (row.raw.status === 'Unmatched') confirmMatch(row.raw);
+              else presenter.onOpenSettlementPayment(row.raw);
             }}
             emptyText="No Paystack settlements yet."
           />

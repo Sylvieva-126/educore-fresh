@@ -63,7 +63,7 @@ function AcademicsMenu() {
 }
 
 function FeesMenu() {
-  return <MenuScreen adCodes={['AD21', 'AD23', 'AD24', 'AD25']} />;
+  return <MenuScreen adCodes={['AD21', 'AD22', 'AD23', 'AD24', 'AD25']} />;
 }
 
 function MoreMenu() {

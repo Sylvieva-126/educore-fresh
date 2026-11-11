@@ -69,7 +69,7 @@ export default function InvoiceDetailView({ route, navigation }) {
       <AdminScaffold eyebrow="Fees" title="Invoice">
         <EmptyState
           title="No invoice selected"
-          hint="Open one from Student invoices — this page shows one invoice with its payments."
+          hint="Open one from Fees → Student invoices — this page shows one invoice with its payments."
         />
       </AdminScaffold>
     );

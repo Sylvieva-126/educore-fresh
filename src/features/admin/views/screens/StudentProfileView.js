@@ -95,6 +95,14 @@ export default function StudentProfileView({ route, navigation }) {
             {state.feeStatus ? state.feeStatus.summary || 'Up to date' : 'Not available'}
           </Text>
 
+          <Text style={styles.section}>Guardian</Text>
+          <Text style={styles.line}>{s.guardianName || 'No guardian recorded'}</Text>
+          {s.guardianPhone || s.guardianEmail ? (
+            <Text style={styles.line}>
+              {[s.guardianPhone, s.guardianEmail].filter(Boolean).join(' · ')}
+            </Text>
+          ) : null}
+
           <Text style={styles.section}>Move class</Text>
           <LabelledField
             label="New class"
@@ -115,19 +123,29 @@ export default function StudentProfileView({ route, navigation }) {
             onPress={() => presenter.confirmClassMove(targetClass, today)}
           />
 
-          <Text style={styles.section}>Withdraw student</Text>
-          {state.withdrawalError ? <Text style={styles.error}>{state.withdrawalError}</Text> : null}
-          <PrimaryButton
-            label={
-              state.withdrawalState === 'saving'
-                ? 'Saving…'
-                : state.withdrawalState === 'accepted'
-                  ? 'Withdrawal accepted'
-                  : 'Withdraw this student'
-            }
-            disabled={state.withdrawalState === 'saving'}
-            onPress={confirmWithdrawal}
-          />
+          {s.status === 'Withdrawn' || s.status === 'Graduated' ? (
+            <Text style={styles.muted}>
+              {s.status === 'Withdrawn'
+                ? 'This student has already been withdrawn — no further action here.'
+                : 'This student has graduated — withdrawal no longer applies.'}
+            </Text>
+          ) : (
+            <>
+              <Text style={styles.section}>Withdraw student</Text>
+              {state.withdrawalError ? <Text style={styles.error}>{state.withdrawalError}</Text> : null}
+              <PrimaryButton
+                label={
+                  state.withdrawalState === 'saving'
+                    ? 'Saving…'
+                    : state.withdrawalState === 'accepted'
+                      ? 'Withdrawal accepted'
+                      : 'Withdraw this student'
+                }
+                disabled={state.withdrawalState === 'saving'}
+                onPress={confirmWithdrawal}
+              />
+            </>
+          )}
 
           <Text style={styles.section}>More</Text>
           {/* The gap stops "View reports" and "Edit student" from touching. */}

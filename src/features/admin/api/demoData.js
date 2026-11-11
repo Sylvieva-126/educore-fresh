@@ -183,7 +183,7 @@ const INVOICE_PAYMENTS = {
 
 const naira = (n) => `₦${Number(n || 0).toLocaleString('en-NG')}`;
 
-function applyInvoicePayment(invoice, amount, method, reference) {
+function applyInvoicePayment(invoice, amount, method, reference, channel = 'office') {
   // Money rules live in the Java API on the real backend. The demo keeps the
   // same rules locally: never overpay, and status follows balance + due date.
   const applied = Math.max(0, Math.min(amount, invoice.amount - invoice.paid));
@@ -194,7 +194,7 @@ function applyInvoicePayment(invoice, amount, method, reference) {
     balance === 0 ? 'Paid' : invoice.dueDate < todayLabel() ? 'Overdue' : 'PartiallyPaid';
   const row = {
     id: `ipm-${Date.now()}`,
-    method: `${method} (office)`,
+    method: `${method} (${channel})`,
     amountLabel: naira(applied),
     reference: reference || 'Office receipt',
     paidAt: todayLabel(),
@@ -216,6 +216,16 @@ const REFUND_REQUESTS = [
     reason: 'Duplicate payment — the guardian also paid at the office.',
     status: 'Pending',
     createdAt: '2026-11-09',
+  },
+  {
+    id: 'rfr-2',
+    paymentId: 'pay-5',
+    reference: 'OFF-2026-0032',
+    studentName: 'Chiamaka Eze',
+    amountLabel: '₦40,000',
+    reason: 'Guardian paid at the office after the bank transfer had already gone through.',
+    status: 'Pending',
+    createdAt: '2026-11-10',
   },
 ];
 
@@ -254,6 +264,35 @@ const GUARDIANS = [
     id: 'gd-6', fullName: 'Mrs. Adaeze Ogun', phone: '+234 809 666 7788', email: 'adaeze.ogun@example.com',
     relationship: 'Mother', status: 'Active', childrenCount: 1,
     children: [{ studentId: 6, name: 'Daniel Ogun', classLabel: 'SSS3 A', relationship: 'Mother' }],
+  },
+];
+
+// AD07/AD09 — teachers, their subjects and form-class responsibilities.
+const TEACHERS = [
+  {
+    id: 'tch-1', fullName: 'Mrs. Ifeoma Eze', staffNumber: 'GST/014', phone: '+234 810 111 2020',
+    email: 'ifeoma.eze@greenfield.edu.ng', status: 'Active', formClass: 'SSS1 A',
+    subjects: ['Biology', 'Agricultural Science'],
+  },
+  {
+    id: 'tch-2', fullName: 'Mr. Ademola Adeyinka', staffNumber: 'GST/022', phone: '+234 810 222 3030',
+    email: 'ademola.adeyinka@greenfield.edu.ng', status: 'Active', formClass: 'SSS2 A',
+    subjects: ['Economics', 'Commerce'],
+  },
+  {
+    id: 'tch-3', fullName: 'Mr. Kabiru Lawal', staffNumber: 'GST/031', phone: '+234 810 333 4040',
+    email: 'kabiru.lawal@greenfield.edu.ng', status: 'On Leave', formClass: null,
+    subjects: ['Further Mathematics'],
+  },
+  {
+    id: 'tch-4', fullName: 'Miss Chioma Obi', staffNumber: 'GST/040', phone: '+234 810 444 5050',
+    email: 'chioma.obi@greenfield.edu.ng', status: 'Active', formClass: 'JSS1 A',
+    subjects: ['English Language', 'Literature'],
+  },
+  {
+    id: 'tch-5', fullName: 'Mr. Danladi Yusuf', staffNumber: 'GST/053', phone: '+234 810 555 6060',
+    email: 'danladi.yusuf@greenfield.edu.ng', status: 'Active', formClass: null,
+    subjects: ['Basic Science', 'Mathematics'],
   },
 ];
 
@@ -633,6 +672,12 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       return { ok: true };
     }
     if (seg[2] === 'withdrawals' && student) {
+      if (student.status === 'Withdrawn') {
+        return { ok: false, error: 'This student has already been withdrawn.' };
+      }
+      if (student.status === 'Graduated') {
+        return { ok: false, error: 'This student has already graduated.' };
+      }
       student.status = 'Withdrawn';
       return { ok: true };
     }
@@ -793,6 +838,26 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   if (seg[0] === 'guardians' && seg.length === 2 && m === 'GET') {
     return GUARDIANS.find((g) => g.id === seg[1]) || null;
   }
+
+  // AD07/AD09 — teachers list and one teacher's responsibilities
+  if (seg[0] === 'teachers' && seg.length === 1 && m === 'GET') {
+    const q = (query.q || query.search || '').toString().trim().toLowerCase();
+    const status = query.status && query.status !== 'all' ? query.status : null;
+    const rows = TEACHERS.filter((t) => {
+      if (status && t.status !== status) return false;
+      if (q) {
+        const haystack = `${t.fullName} ${t.staffNumber} ${(t.subjects || []).join(' ')} ${
+          t.formClass || ''
+        }`.toLowerCase();
+        return haystack.includes(q);
+      }
+      return true;
+    });
+    return paginate(rows, query.page);
+  }
+  if (seg[0] === 'teachers' && seg.length === 2 && m === 'GET') {
+    return TEACHERS.find((t) => t.id === seg[1]) || null;
+  }
   if (seg[0] === 'finance' && seg[1] === 'settlements' && seg.length === 2 && m === 'GET') {
     return paginate(SETTLEMENTS, query.page);
   }
@@ -800,12 +865,21 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     if (m === 'GET') return paginate(RECONCILIATIONS, query.page);
     if (m === 'POST') {
       const payment = PAYMENTS.find((p) => p.id === (body && body.paymentId));
+      if (payment && payment.status === 'Reconciled') {
+        return { ok: false, error: 'This settlement is already matched.' };
+      }
       if (payment) {
         payment.status = 'Reconciled';
         payment.invoiceNumber = (body && body.invoiceNumber) || payment.invoiceNumber || '—';
         // The board's badge reads the settlement row, so flip it too.
         const settlement = SETTLEMENTS.find((s) => s.reference === payment.reference);
         if (settlement) settlement.status = 'Matched';
+        // Money consistency: matched money lands on the invoice it pays.
+        const invoice = INVOICES.find((inv) => inv.number === payment.invoiceNumber);
+        if (invoice && invoice.amount - invoice.paid > 0) {
+          const amount = Number(String(payment.amountLabel).replace(/[^0-9.]/g, ''));
+          applyInvoicePayment(invoice, amount, 'Bank transfer', payment.reference, 'Paystack');
+        }
       }
       RECONCILIATIONS.unshift({
         id: `rec-${Date.now()}`,

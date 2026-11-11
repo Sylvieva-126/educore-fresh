@@ -11,6 +11,10 @@ export const TeacherModel = {
         id: t.id,
         name: t.fullName || t.name || '',
         staffNumber: t.staffNumber || '',
+        phone: t.phone || '',
+        email: t.email || '',
+        formClass: t.formClass || null,
+        subjects: t.subjects || [],
         status: t.status || 'Active',
       })),
     };

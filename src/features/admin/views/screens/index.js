@@ -8,6 +8,8 @@ import StudentListView from './StudentListView';
 import StudentProfileView from './StudentProfileView';
 import GuardianListView from './GuardianListView';
 import GuardianProfileView from './GuardianProfileView';
+import TeacherListView from './TeacherListView';
+import TeacherProfileView from './TeacherProfileView';
 import StudentFormView from './StudentFormView';
 import InvoiceListView from './InvoiceListView';
 import InvoiceDetailView from './InvoiceDetailView';
@@ -51,9 +53,19 @@ export const ADMIN_SCREENS = {
     Component: GuardianProfileView,
     tab: 'More',
   },
-  AD07: { name: 'TeacherList', title: 'Teachers list', tab: 'More' },
+  AD07: {
+    name: 'TeacherList',
+    title: 'Teachers list',
+    Component: TeacherListView,
+    tab: 'More',
+  },
   AD08: { name: 'TeacherForm', title: 'Register or edit a teacher', tab: 'More' },
-  AD09: { name: 'TeacherProfile', title: 'Teacher profile and responsibilities', tab: 'More' },
+  AD09: {
+    name: 'TeacherProfile',
+    title: 'Teacher profile and responsibilities',
+    Component: TeacherProfileView,
+    tab: 'More',
+  },
   AD10: { name: 'SchoolSettings', title: 'School settings and admin access', tab: 'More' },
   AD11: {
     name: 'Calendar',

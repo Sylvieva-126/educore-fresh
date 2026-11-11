@@ -88,6 +88,17 @@ export class StudentProfilePresenter {
   /** Withdraw: confirmed twice in the View; list filter must include the status. */
   async confirmWithdrawal(reason, effectiveDate) {
     if (this.state.withdrawalState === 'saving') return;
+    const current = this.state.student;
+    if (current && (current.status === 'Withdrawn' || current.status === 'Graduated')) {
+      this._setState({
+        withdrawalState: 'failed',
+        withdrawalError:
+          current.status === 'Withdrawn'
+            ? 'This student has already been withdrawn.'
+            : 'This student has already graduated.',
+      });
+      return;
+    }
     this._setState({ withdrawalState: 'saving', withdrawalError: null });
     try {
       await this.model.withdraw(this._studentId, { reason, effectiveDate });
