@@ -2,7 +2,7 @@
  * AD11 — School calendar. One screen for the term window, the key dates
  * families ask about, and today's schedule (the same slots the home shows).
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class CalendarPresenter {
   constructor(calendarModel) {

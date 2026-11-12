@@ -2,7 +2,7 @@
  * AD21 — Set fees and issue bills. List the plans, create a plan for a
  * class, then issue its bills (one invoice per ACTIVE student in the class).
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class FeePlansPresenter {
   constructor(feePlanModel) {

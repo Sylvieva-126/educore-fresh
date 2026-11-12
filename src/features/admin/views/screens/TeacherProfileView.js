@@ -85,10 +85,12 @@ export default function TeacherProfileView({ route, navigation }) {
             emptyText="No subjects assigned yet."
           />
 
-          <SecondaryButton
-            label="Edit profile, subjects and form class"
-            onPress={() => navigation.navigate('TeacherForm', { teacherId: t.id })}
-          />
+          <View style={styles.editWrap}>
+            <SecondaryButton
+              label="Edit profile, subjects and form class"
+              onPress={() => navigation.navigate('TeacherForm', { teacherId: t.id })}
+            />
+          </View>
         </View>
       ) : null}
     </AdminScaffold>
@@ -101,4 +103,5 @@ const styles = StyleSheet.create({
   fact: { ...typography.body, marginTop: spacing.sm },
   line: { ...typography.body },
   section: { ...typography.sectionTitle, marginTop: spacing.lg, marginBottom: spacing.sm },
+  editWrap: { marginTop: spacing.md },
 });

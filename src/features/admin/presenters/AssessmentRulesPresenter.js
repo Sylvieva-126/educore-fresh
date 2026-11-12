@@ -3,7 +3,7 @@
  * exam split, the pass mark, and the score each grade starts at. The server
  * checks the arithmetic; lock freezes the policy for the term.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class AssessmentRulesPresenter {
   constructor(assessmentModel) {

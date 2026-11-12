@@ -3,8 +3,9 @@
  * and the admin memberships load in one pass; saving patches the settings,
  * membership edits go through their own endpoints.
  */
-import { ApiError } from '../api/client';
-import { SchoolSettingsModel } from '../models';
+import { ApiError } from '../api/ApiError';
+// The settings model is injected by the view (constructor) — no static model
+// import here, so this presenter stays importable in node tests.
 
 export class SettingsPresenter {
   constructor(settingsModel) {
@@ -71,9 +72,45 @@ export class SettingsPresenter {
       this._setState({ notice: null, errorText: 'The school needs a name.' });
       return false;
     }
+    // Session: two consecutive years, e.g. 2026-2027. Spaces are tolerated
+    // and normalised away; anything else ("2010- 2067", "2026/2027") refuses.
+    const session = String(fields.sessionLabel || '').replace(/\s+/g, '');
+    const sessionMatch = /^(\d{4})-(\d{4})$/.exec(session);
+    if (!sessionMatch || Number(sessionMatch[2]) !== Number(sessionMatch[1]) + 1) {
+      this._setState({
+        notice: null,
+        errorText: 'The session must be two consecutive years — e.g. 2026-2027.',
+      });
+      return false;
+    }
+    if (!['First Term', 'Second Term', 'Third Term'].includes(fields.termLabel)) {
+      this._setState({ notice: null, errorText: 'Pick First, Second or Third Term.' });
+      return false;
+    }
+    if (fields.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.trim())) {
+      this._setState({
+        notice: null,
+        errorText: 'That email address does not look right — e.g. office@greenfield.edu.ng.',
+      });
+      return false;
+    }
+    if (fields.phone && !/^\+?[0-9][0-9\s\-()]{6,18}$/.test(fields.phone.trim())) {
+      this._setState({
+        notice: null,
+        errorText: 'That phone number does not look right — use digits with an optional +234, e.g. +234 810 000 1010.',
+      });
+      return false;
+    }
+    if (fields.nextTermBegins && !/^\d{4}-\d{2}-\d{2}$/.test(fields.nextTermBegins.trim())) {
+      this._setState({
+        notice: null,
+        errorText: 'Next term begins must be a date like 2027-01-11.',
+      });
+      return false;
+    }
     this._setState({ saving: true, notice: null, errorText: null });
     try {
-      const result = await this.model.update(fields);
+      const result = await this.model.update({ ...fields, sessionLabel: session });
       this._setState({
         saving: false,
         settings: result.settings,

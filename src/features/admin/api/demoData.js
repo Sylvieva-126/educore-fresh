@@ -766,6 +766,68 @@ const ASSESSMENT_POLICY = {
   ],
 };
 
+/* ── AD20 — learner report cards (generated from the seed marks) ─────── */
+
+const REPORT_CARDS = ['batch-1', 'batch-2'].map((batchId, i) => {
+  const batch = REPORT_BATCHES.find((b) => b.id === batchId);
+  const student = STUDENTS.find((s) => s.classLabel === batch.classLabel);
+  const rows = SUBJECTS.filter((s) => s.classes.includes(batch.classLabel)).map((s, j) => {
+    const caScore = 18 + ((j * 7) % 13);
+    const examScore = 40 + ((j * 11) % 22);
+    const total = caScore + examScore;
+    const band = [...ASSESSMENT_POLICY.grades].reverse().find((g) => total >= g.minScore);
+    return { subject: s.name, caScore, examScore, total, grade: band.grade, remark: band.remark };
+  });
+  const average = Math.round(rows.reduce((n, r) => n + r.total, 0) / rows.length);
+  const form = buildClasses().find((c) => c.classLabel === batch.classLabel);
+  return {
+    id: `rep-${i + 1}`,
+    batchId,
+    studentId: student.id,
+    studentName: student.fullName,
+    classLabel: batch.classLabel,
+    termLabel: batch.termLabel,
+    subjects: rows,
+    average,
+    position: i === 0 ? '9th of 32' : '4th of 34',
+    formTeacherName: form ? form.formTeacherName : '—',
+    overallRemark: average >= 50 ? 'A good term. Keep it up.' : 'Work harder next term.',
+  };
+});
+
+/* ── AD26/AD27 — promotion previews (computed from official marks) ───── */
+
+function makePromotionRows(classLabel, graduating) {
+  const roster = STUDENTS.filter((s) => s.classLabel === classLabel);
+  return roster.map((s, i) => {
+    const average = 38 + ((i * 17) % 50); // 38-87, deterministic per student
+    const computed = graduating
+      ? average >= 40 ? 'Graduate' : 'Repeat'
+      : average >= 40 ? 'Promote' : 'Repeat';
+    return { studentId: s.id, fullName: s.fullName, average, decision: computed };
+  });
+}
+
+function summariseRows(rows) {
+  return {
+    promote: rows.filter((r) => r.decision === 'Promote').length,
+    repeat: rows.filter((r) => r.decision === 'Repeat').length,
+    graduate: rows.filter((r) => r.decision === 'Graduate').length,
+  };
+}
+
+const PROMOTION_PREVIEWS = [
+  {
+    id: 'prm-1', classLabel: 'JSS1 A', sessionLabel: '2026/2027', status: 'Draft',
+    computedAt: '2026-11-10', rows: makePromotionRows('JSS1 A', false),
+  },
+  {
+    id: 'prm-2', classLabel: 'SSS3 A', sessionLabel: '2026/2027', status: 'Draft',
+    computedAt: '2026-11-10', rows: makePromotionRows('SSS3 A', true),
+  },
+].map((p) => ({ ...p, summary: summariseRows(p.rows) }));
+let nextPreviewId = 3;
+
 /* Subject rules shared by create and edit: Core spans both levels; JSS is
    junior-only; the named departments are SSS-only. Teachers are assigned per
    subject and mirrored into the staff records the timetable checks. */
@@ -814,6 +876,17 @@ function syncTeacherSubjects(teacher, subjectNames) {
     if (should && !has) s.teachers = [...(s.teachers || []), teacher.fullName];
     if (!should && has) s.teachers = (s.teachers || []).filter((n) => n !== teacher.fullName);
   });
+}
+
+/** Next staff number — the highest GST/nnn on staff + 1 ("max + 1"), so the
+    office never types one. */
+function nextStaffNumber() {
+  let max = 0;
+  TEACHERS.forEach((t) => {
+    const m = /(\d+)\s*$/.exec(t.staffNumber || '');
+    if (m) max = Math.max(max, Number(m[1]));
+  });
+  return `GST/${String(max + 1).padStart(3, '0')}`;
 }
 
 // AD10 — the school profile the office edits, and the admin memberships
@@ -1076,8 +1149,11 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     const b = body || {};
     const fullName = cleanText(b.fullName);
     if (!fullName) return { ok: false, error: 'Enter the teacher\'s full name.' };
-    if (b.email && !String(b.email).includes('@')) {
-      return { ok: false, error: 'That email address does not look right.' };
+    if (b.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(b.email).trim())) {
+      return { ok: false, error: 'That email address does not look right — e.g. name@greenfield.edu.ng.' };
+    }
+    if (b.phone && !/^\+?[0-9][0-9\s\-()]{6,18}$/.test(String(b.phone).trim())) {
+      return { ok: false, error: 'That phone number does not look right — use digits with an optional +234, e.g. +234 810 444 5050.' };
     }
     const subjects = Array.isArray(b.subjects) ? b.subjects.filter(Boolean) : [];
     const unknownSubject = subjects.find((s) => !SUBJECTS.some((sub) => sub.name === s));
@@ -1088,7 +1164,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     const teacher = {
       id: `tch-${Date.now()}`,
       fullName,
-      staffNumber: cleanText(b.staffNumber) || `GST/${String(TEACHERS.length + 1).padStart(3, '0')}`,
+      staffNumber: cleanText(b.staffNumber) || nextStaffNumber(),
       phone: cleanText(b.phone),
       email: cleanText(b.email),
       status: 'Active',
@@ -1108,6 +1184,12 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       const b = body || {};
       if (b.fullName !== undefined && !cleanText(b.fullName)) {
         return { ok: false, error: 'Enter the teacher\'s full name.' };
+      }
+      if (b.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(b.email).trim())) {
+        return { ok: false, error: 'That email address does not look right — e.g. name@greenfield.edu.ng.' };
+      }
+      if (b.phone && !/^\+?[0-9][0-9\s\-()]{6,18}$/.test(String(b.phone).trim())) {
+        return { ok: false, error: 'That phone number does not look right — use digits with an optional +234, e.g. +234 810 444 5050.' };
       }
       if (b.fullName !== undefined) teacher.fullName = cleanText(b.fullName);
       if (b.staffNumber !== undefined) teacher.staffNumber = cleanText(b.staffNumber);
@@ -1178,11 +1260,30 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     if (b.schoolName !== undefined && !cleanText(b.schoolName)) {
       return { ok: false, error: 'The school needs a name.' };
     }
+    if (b.sessionLabel !== undefined) {
+      const session = String(b.sessionLabel).replace(/\s+/g, '');
+      const years = /^(\d{4})-(\d{4})$/.exec(session);
+      if (!years || Number(years[2]) !== Number(years[1]) + 1) {
+        return { ok: false, error: 'The session must be two consecutive years — e.g. 2026-2027.' };
+      }
+      SETTINGS.sessionLabel = session;
+    }
+    if (b.termLabel !== undefined && !['First Term', 'Second Term', 'Third Term'].includes(b.termLabel)) {
+      return { ok: false, error: 'Pick First, Second or Third Term.' };
+    }
+    if (b.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(b.email).trim())) {
+      return { ok: false, error: 'That email address does not look right — e.g. office@greenfield.edu.ng.' };
+    }
+    if (b.phone && !/^\+?[0-9][0-9\s\-()]{6,18}$/.test(String(b.phone).trim())) {
+      return { ok: false, error: 'That phone number does not look right — use digits with an optional +234, e.g. +234 810 000 1010.' };
+    }
+    if (b.nextTermBegins && !/^\d{4}-\d{2}-\d{2}$/.test(String(b.nextTermBegins).trim())) {
+      return { ok: false, error: 'Next term begins must be a date like 2027-01-11.' };
+    }
     if (b.schoolName !== undefined) SETTINGS.schoolName = cleanText(b.schoolName);
     if (b.address !== undefined) SETTINGS.address = cleanText(b.address);
     if (b.phone !== undefined) SETTINGS.phone = cleanText(b.phone);
     if (b.email !== undefined) SETTINGS.email = cleanText(b.email);
-    if (b.sessionLabel !== undefined) SETTINGS.sessionLabel = cleanText(b.sessionLabel);
     if (b.termLabel !== undefined) SETTINGS.termLabel = cleanText(b.termLabel);
     if (b.nextTermBegins !== undefined) SETTINGS.nextTermBegins = cleanText(b.nextTermBegins);
     return { ok: true, settings: SETTINGS };
@@ -1420,11 +1521,9 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       if (ca + exam !== 100) {
         return { ok: false, error: `CA (${ca}%) + exam (${exam}%) must add up to exactly 100%.` };
       }
-      if (!Number.isFinite(pass) || pass < 0 || pass > 100) {
-        return { ok: false, error: 'The pass mark must be between 0 and 100.' };
-      }
-      if (pass <= 33) {
-        return { ok: false, error: 'The pass mark must be above 33 — set it at 34% or more.' };
+      if (!Number.isFinite(pass) || pass < 34 || pass > 100) {
+        // One message for every out-of-range case (too small, 49494, NaN…).
+        return { ok: false, error: 'The pass mark must be between 34 and 100.' };
       }
       const grades = Array.isArray(b.grades) ? b.grades : ASSESSMENT_POLICY.grades;
       for (let i = 1; i < grades.length; i++) {
@@ -1434,6 +1533,14 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
             error: `Grade ${grades[i - 1].grade} must start above grade ${grades[i].grade} — check the minimum scores.`,
           };
         }
+      }
+      // The passing grades start at the pass mark: only F may sit below it.
+      const belowPass = grades.filter((g) => g.grade !== 'F' && Number(g.minScore) < pass);
+      if (belowPass.length) {
+        return {
+          ok: false,
+          error: `Grade ${belowPass[0].grade} starts below the pass mark — every grade except F must start at ${pass}% or above.`,
+        };
       }
       ASSESSMENT_POLICY.caWeight = ca;
       ASSESSMENT_POLICY.examWeight = exam;
@@ -1586,6 +1693,95 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       batch.publishedAt = null;
     }
     return { ok: true };
+  }
+
+  // AD20 — reports catalogue (the class batches) and one learner's report
+  // card. Published/ready batches carry a sample report id; drafts have none.
+  if (seg[0] === 'reports' && seg[1] === 'catalogue' && m === 'GET') {
+    const items = REPORT_BATCHES.map((b) => {
+      const card = REPORT_CARDS.find((r) => r.batchId === b.id);
+      return {
+        ...b,
+        sampleReportId: card ? card.id : null,
+        sampleStudentId: card ? card.studentId : null,
+      };
+    });
+    return paginate(items, query.page);
+  }
+  if (seg[0] === 'learners' && seg.length === 4 && seg[2] === 'reports' && m === 'GET') {
+    const report = REPORT_CARDS.find((r) => r.id === seg[3] && String(r.studentId) === seg[1]);
+    if (!report) return { ok: false, error: 'Report card not found.' };
+    return { ok: true, report };
+  }
+
+  // AD26/AD27 — promotion previews: compute, decide (PUT), validate, confirm.
+  if (seg[0] === 'promotion-previews' && seg.length === 1) {
+    if (m === 'GET') return paginate(PROMOTION_PREVIEWS, query.page);
+    if (m === 'POST') {
+      const classLabel = (body && body.classLabel) || '';
+      if (!CLASS_NAMES.includes(classLabel)) {
+        return { ok: false, error: 'Pick a class from the list.' };
+      }
+      if (PROMOTION_PREVIEWS.some((p) => p.classLabel === classLabel && p.status !== 'Confirmed')) {
+        return {
+          ok: false,
+          error: `${classLabel} already has a promotion preview — open it and finish the decisions.`,
+        };
+      }
+      const graduating = classLabel.startsWith('SSS3');
+      const rows = makePromotionRows(classLabel, graduating);
+      const preview = {
+        id: `prm-${nextPreviewId++}`,
+        classLabel,
+        sessionLabel: '2026/2027',
+        status: 'Draft',
+        computedAt: todayLabel(),
+        rows,
+        summary: summariseRows(rows),
+      };
+      PROMOTION_PREVIEWS.push(preview);
+      return { ok: true, preview };
+    }
+  }
+  if (seg[0] === 'promotion-previews' && seg.length === 2 && m === 'GET') {
+    const preview = PROMOTION_PREVIEWS.find((p) => p.id === seg[1]);
+    if (!preview) return { ok: false, error: 'Promotion preview not found.' };
+    return { ok: true, preview };
+  }
+  if (seg[0] === 'promotion-previews' && seg.length === 3 && seg[2] === 'decisions' && m === 'PUT') {
+    const preview = PROMOTION_PREVIEWS.find((p) => p.id === seg[1]);
+    if (!preview) return { ok: false, error: 'Promotion preview not found.' };
+    if (preview.status !== 'Draft') {
+      return { ok: false, error: 'This preview is confirmed — its decisions are frozen.' };
+    }
+    const decisions = Array.isArray(body && body.decisions) ? body.decisions : [];
+    decisions.forEach((d) => {
+      const row = preview.rows.find((r) => String(r.studentId) === String(d.studentId));
+      if (row && ['Promote', 'Repeat', 'Graduate'].includes(d.decision)) {
+        row.decision = d.decision;
+      }
+    });
+    preview.summary = summariseRows(preview.rows);
+    return { ok: true, preview };
+  }
+  if (seg[0] === 'promotion-previews' && seg.length === 3 && seg[2] === 'validate' && m === 'POST') {
+    const preview = PROMOTION_PREVIEWS.find((p) => p.id === seg[1]);
+    if (!preview) return { ok: false, error: 'Promotion preview not found.' };
+    const undecided = preview.rows.filter((r) => !['Promote', 'Repeat', 'Graduate'].includes(r.decision));
+    if (undecided.length) {
+      return { ok: false, error: `${undecided.length} student(s) still need a decision before validation.` };
+    }
+    return { ok: true, problems: [] };
+  }
+  if (seg[0] === 'promotion-previews' && seg.length === 3 && seg[2] === 'confirm' && m === 'POST') {
+    const preview = PROMOTION_PREVIEWS.find((p) => p.id === seg[1]);
+    if (!preview) return { ok: false, error: 'Promotion preview not found.' };
+    const undecided = preview.rows.filter((r) => !['Promote', 'Repeat', 'Graduate'].includes(r.decision));
+    if (undecided.length) {
+      return { ok: false, error: `${undecided.length} student(s) still need a decision before confirming.` };
+    }
+    preview.status = 'Confirmed';
+    return { ok: true, preview };
   }
 
   // AD19 — Draft / returned batches move to ReadyToPublish on submit-review

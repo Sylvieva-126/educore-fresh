@@ -3,7 +3,7 @@
  * provisioning workflow; edits patch the profile and route subject changes
  * through the assignment-changes endpoint so subject records stay in sync.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class TeacherFormPresenter {
   constructor(teacherModel, structureModel) {
@@ -82,6 +82,20 @@ export class TeacherFormPresenter {
       this._setState({ notice: null, errorText: "Enter the teacher's full name." });
       return false;
     }
+    if (fields.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.trim())) {
+      this._setState({
+        notice: null,
+        errorText: 'That email address does not look right — e.g. name@greenfield.edu.ng.',
+      });
+      return false;
+    }
+    if (fields.phone && !/^\+?[0-9][0-9\s\-()]{6,18}$/.test(fields.phone.trim())) {
+      this._setState({
+        notice: null,
+        errorText: 'That phone number does not look right — use digits with an optional +234, e.g. +234 810 444 5050.',
+      });
+      return false;
+    }
     this._setState({ saving: true, notice: null, errorText: null });
     try {
       if (this.state.mode === 'create') {
@@ -101,7 +115,7 @@ export class TeacherFormPresenter {
           notice:
             `${result.teacher.fullName} registered — subjects and form class saved.` +
             (result.provisioning && result.provisioning.status === 'Queued'
-              ? ' Their staff account is being provisioned; tap Retry if it stays queued.'
+              ? ' Their staff account provisioning has started — tap Retry if it stays queued.'
               : ''),
         });
         return true;

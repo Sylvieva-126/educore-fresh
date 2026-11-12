@@ -3,7 +3,7 @@
  * guardians, staff groups, broadcast threads. Unread counts come from the
  * backend's read state.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class MessageInboxPresenter {
   constructor(messagesModel) {

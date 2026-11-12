@@ -4,7 +4,7 @@
  * (request → decide → execute or manual confirmation). Every action posts
  * through the Model and reloads.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class PaymentDetailPresenter {
   constructor(financeModel) {

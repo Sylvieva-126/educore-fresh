@@ -3,7 +3,7 @@
  * draft shows the whole week read-only, with validate + publish actions.
  * Publishing is confirmed in a dialog and guarded by the API.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class TimetablePublishPresenter {
   constructor(timetableModel) {

@@ -12,7 +12,7 @@
  * The View never calls fetch and never formats data. The Model never touches
  * React. This file is the only place that decides WHAT the screen shows.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 import { toCsv, shareOrCopyCsv } from '../api/csv';
 
 const SEARCH_DEBOUNCE_MS = 350;

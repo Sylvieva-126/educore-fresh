@@ -2,7 +2,7 @@
  * AD07 — Teachers list. Search by name, staff number, subject or form class;
  * filter by status (Active / On Leave); open a teacher's profile.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class TeacherListPresenter {
   constructor(teacherModel) {

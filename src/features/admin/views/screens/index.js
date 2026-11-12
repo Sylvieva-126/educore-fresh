@@ -27,6 +27,8 @@ import ImportsExportsView from './ImportsExportsView';
 import CalendarView from './CalendarView';
 import AttendanceOverviewView from './AttendanceOverviewView';
 import ResultsReviewView from './ResultsReviewView';
+import ReportsView from './ReportsView';
+import PromotionPreviewView from './PromotionPreviewView';
 import PaymentsBoardView from './PaymentsBoardView';
 import PaymentDetailView from './PaymentDetailView';
 import MessageInboxView from './MessageInboxView';
@@ -140,7 +142,7 @@ export const ADMIN_SCREENS = {
     Component: ResultsReviewView,
     tab: 'Academics',
   },
-  AD20: { name: 'Reports', title: 'Reports', tab: 'Academics' },
+  AD20: { name: 'Reports', title: 'Reports', Component: ReportsView, tab: 'Academics' },
   AD21: {
     name: 'FeePlans',
     title: 'Set fees and issue bills',
@@ -166,7 +168,12 @@ export const ADMIN_SCREENS = {
     Component: PaymentDetailView,
     tab: 'Fees',
   },
-  AD26: { name: 'PromotionPreview', title: 'Preview promotion or completion', tab: 'More' },
+  AD26: {
+    name: 'PromotionPreview',
+    title: 'Preview promotion or completion',
+    Component: PromotionPreviewView,
+    tab: 'More',
+  },
   AD27: { name: 'PromotionApprove', title: 'Approve promotion and graduation', tab: 'More' },
   AD28: { name: 'Notices', title: 'School announcements', Component: NoticesView, tab: 'More' },
   AD29: {

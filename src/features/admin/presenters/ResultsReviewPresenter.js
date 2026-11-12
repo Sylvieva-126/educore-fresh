@@ -3,7 +3,7 @@
  * admin; report batches are published here, which is what puts report cards
  * in the Student/Parent apps.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class ResultsReviewPresenter {
   constructor(resultsModel) {

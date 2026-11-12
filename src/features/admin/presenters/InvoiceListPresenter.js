@@ -2,7 +2,7 @@
  * AD22 — Student invoices. Same list pattern as StudentListPresenter with
  * finance-specific filters; balances and statuses come from the backend.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 const SEARCH_DEBOUNCE_MS = 350;
 

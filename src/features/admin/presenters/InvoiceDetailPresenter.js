@@ -3,7 +3,7 @@
  * action of recording a cash/transfer/POS payment. Money math stays in the
  * API; the demo clamps to the balance with the same rule.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class InvoiceDetailPresenter {
   constructor(financeModel) {

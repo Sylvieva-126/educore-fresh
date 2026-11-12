@@ -3,7 +3,7 @@
  * internal notes, and the state-machine buttons (start review, resolve,
  * close). Every action posts through the Model and reloads the case.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class ComplaintDetailPresenter {
   constructor(complaintsModel) {

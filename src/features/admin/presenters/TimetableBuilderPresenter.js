@@ -3,7 +3,7 @@
  * tap an empty period to pick the subject and the teacher. The draft is saved
  * after every fill; "Send for review" checks it is complete first.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 const BASE_TIMES = [
   '08:00 – 08:40', '08:45 – 09:25', '09:30 – 10:10',
@@ -80,8 +80,11 @@ export class TimetableBuilderPresenter {
         this.structureModel.subjects(),
         this.model.assignmentCandidates(),
       ]);
-      const classLabel = draft.classLabel;
-      const inClass = (s) => s.classes.includes(classLabel);
+      // NOTE: this must NOT be named `classLabel` — a same-named const in this
+      // block shadows the parameter and puts `createDraft({ classLabel })`
+      // above into the temporal dead zone (crashed every NEW class in v11–v14).
+      const label = draft.classLabel;
+      const inClass = (s) => s.classes.includes(label);
       this._setState({
         status: 'content',
         draft,

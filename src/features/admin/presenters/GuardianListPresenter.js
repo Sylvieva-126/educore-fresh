@@ -2,7 +2,7 @@
  * AD05 — Parents and guardians list. Search by name, phone, email or a
  * child's name, filter by account status, and open a guardian's profile.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class GuardianListPresenter {
   constructor(guardianModel) {

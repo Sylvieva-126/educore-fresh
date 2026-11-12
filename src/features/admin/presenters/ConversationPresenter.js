@@ -4,7 +4,7 @@
  * the same safe-submission pattern as the other screens (draft → sending →
  * done/failed) so nothing the office typed is lost on a failure.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class ConversationPresenter {
   constructor(messagesModel) {

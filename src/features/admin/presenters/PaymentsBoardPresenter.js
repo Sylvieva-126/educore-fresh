@@ -3,7 +3,7 @@
  * arrived; the ledger is every payment row; reconciliation is the office
  * action of matching a settlement to the invoice it pays.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class PaymentsBoardPresenter {
   constructor(financeModel) {

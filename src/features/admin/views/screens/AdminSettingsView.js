@@ -16,6 +16,7 @@ import { SchoolSettingsModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
 
 const ADMIN_ROLES = ['Principal', 'Vice Principal', 'Admin', 'Bursar', 'Exams Officer'];
+const TERMS = ['First Term', 'Second Term', 'Third Term'];
 
 export default function AdminSettingsView({ navigation }) {
   const [presenter] = useState(() => new SettingsPresenter(SchoolSettingsModel));
@@ -30,6 +31,7 @@ export default function AdminSettingsView({ navigation }) {
   const [newAdminName, setNewAdminName] = useState('');
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminRole, setNewAdminRole] = useState('');
+  const [termSheet, setTermSheet] = useState(false);
   const [roleSheet, setRoleSheet] = useState(false); // for the new admin
   const [memberRole, setMemberRole] = useState(null); // { id } being re-roled
   const [roleEditSheet, setRoleEditSheet] = useState(false);
@@ -107,13 +109,13 @@ export default function AdminSettingsView({ navigation }) {
             label="Session"
             value={sessionLabel}
             onChangeText={setSessionLabel}
-            placeholder="e.g. 2026/2027"
+            placeholder="e.g. 2026-2027 — two consecutive years"
           />
           <LabelledField
             label="Current term"
-            value={termLabel}
-            onChangeText={setTermLabel}
-            placeholder="e.g. First Term"
+            displayValue={termLabel}
+            placeholder="Tap to pick First, Second or Third Term"
+            onPress={() => setTermSheet(true)}
           />
           <LabelledField
             label="Next term begins"
@@ -121,22 +123,24 @@ export default function AdminSettingsView({ navigation }) {
             onChangeText={setNextTermBegins}
             placeholder="e.g. 2027-01-11"
           />
-          <PrimaryButton
-            label={state.saving ? 'Saving…' : 'Save school settings'}
-            disabled={state.saving}
-            onPress={async () => {
-              const ok = await presenter.saveSettings({
-                schoolName,
-                address,
-                phone,
-                email,
-                sessionLabel,
-                termLabel,
-                nextTermBegins,
-              });
-              if (ok) presenter.load({ showLoading: false });
-            }}
-          />
+          <View style={styles.actionsWrap}>
+            <PrimaryButton
+              label={state.saving ? 'Saving…' : 'Save school settings'}
+              disabled={state.saving}
+              onPress={async () => {
+                const ok = await presenter.saveSettings({
+                  schoolName,
+                  address,
+                  phone,
+                  email,
+                  sessionLabel,
+                  termLabel,
+                  nextTermBegins,
+                });
+                if (ok) presenter.load();
+              }}
+            />
+          </View>
 
           <Text style={styles.section}>Admin access</Text>
           <RecordList
@@ -170,22 +174,24 @@ export default function AdminSettingsView({ navigation }) {
             displayValue={newAdminRole}
             onPress={() => setRoleSheet(true)}
           />
-          <PrimaryButton
-            label={state.saving ? 'Saving…' : 'Add admin and invite'}
-            disabled={state.saving}
-            onPress={async () => {
-              const ok = await presenter.addMembership({
-                fullName: newAdminName,
-                email: newAdminEmail,
-                role: newAdminRole,
-              });
-              if (ok) {
-                setNewAdminName('');
-                setNewAdminEmail('');
-                setNewAdminRole('');
-              }
-            }}
-          />
+          <View style={styles.actionsWrap}>
+            <PrimaryButton
+              label={state.saving ? 'Saving…' : 'Add admin and invite'}
+              disabled={state.saving}
+              onPress={async () => {
+                const ok = await presenter.addMembership({
+                  fullName: newAdminName,
+                  email: newAdminEmail,
+                  role: newAdminRole,
+                });
+                if (ok) {
+                  setNewAdminName('');
+                  setNewAdminEmail('');
+                  setNewAdminRole('');
+                }
+              }}
+            />
+          </View>
         </View>
       ) : null}
 
@@ -198,6 +204,16 @@ export default function AdminSettingsView({ navigation }) {
           setRoleSheet(false);
         }}
         onClose={() => setRoleSheet(false)}
+      />
+      <SelectSheet
+        visible={termSheet}
+        label="Current term — pick one"
+        options={TERMS.map((t) => ({ label: t, value: t }))}
+        onSelect={(value) => {
+          setTermLabel(value);
+          setTermSheet(false);
+        }}
+        onClose={() => setTermSheet(false)}
       />
       <SelectSheet
         visible={roleEditSheet}
@@ -222,5 +238,6 @@ export default function AdminSettingsView({ navigation }) {
 
 const styles = StyleSheet.create({
   notice: { ...typography.body, color: colors.primary, marginBottom: spacing.sm },
+  actionsWrap: { marginTop: spacing.md },
   section: { ...typography.sectionTitle, marginTop: spacing.md, marginBottom: spacing.sm },
 });

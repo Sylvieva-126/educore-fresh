@@ -3,7 +3,7 @@
  * registers, open a submitted one, and fix a student's status (absent →
  * present etc.). The register's counts recompute after every correction.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class RegisterReviewPresenter {
   constructor(attendanceModel, structureModel) {

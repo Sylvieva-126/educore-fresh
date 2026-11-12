@@ -2,7 +2,7 @@
  * AD09 — One teacher: contact details, account status, form-class
  * responsibility and the subjects they teach.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class TeacherProfilePresenter {
   constructor(teacherModel) {

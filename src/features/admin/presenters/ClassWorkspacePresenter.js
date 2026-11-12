@@ -3,7 +3,7 @@
  * (route param classId) or straight from the Academics menu, where a class
  * picker sheet appears first.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class ClassWorkspacePresenter {
   constructor(structureModel) {

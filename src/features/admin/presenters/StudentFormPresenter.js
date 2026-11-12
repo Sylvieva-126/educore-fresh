@@ -6,7 +6,7 @@
  * Safe submission states: draft → saving → accepted/failed, with inline
  * validation errors so nothing the admin typed is lost on a failed submit.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 import {
   cleanText,
   isValidDateOfBirth,

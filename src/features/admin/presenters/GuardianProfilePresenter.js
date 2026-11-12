@@ -3,7 +3,7 @@
  * account, and the children linked to them. Tapping a child opens that
  * student's profile.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class GuardianProfilePresenter {
   constructor(guardianModel) {

@@ -4,7 +4,7 @@
  * validation before submit, and no double submits while saving.
  * Publish/archive then update the list from the backend response.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class NoticesPresenter {
   constructor(noticesModel) {

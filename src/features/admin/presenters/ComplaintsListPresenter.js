@@ -3,7 +3,7 @@
  * person; the office logs every case here and moves it through
  * New → In review → Resolved → Closed on the detail page (AD32).
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 const COMPLAINT_STATUSES = ['New', 'In review', 'Resolved', 'Closed'];
 

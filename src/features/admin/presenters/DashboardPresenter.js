@@ -3,7 +3,7 @@
  * sections of the design: attendance totals, "needs your attention", and
  * today's schedule. Counts open the matching lists (routing lives here).
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class DashboardPresenter {
   constructor(dashboardModel) {
@@ -54,6 +54,18 @@ export class DashboardPresenter {
 
   onRetry() {
     return this.load();
+  }
+
+  /** Quiet refresh when the screen regains focus — the attendance tiles stay
+      current after a register is corrected elsewhere, without a spinner. */
+  async refresh() {
+    try {
+      const data = await this.model.load();
+      if (!this._alive) return;
+      this._setState({ status: 'content', ...data, errorText: null });
+    } catch (_error) {
+      // keep whatever is on screen; the next focus retries
+    }
   }
 
   /** Each count on the home screen opens the list it came from. */

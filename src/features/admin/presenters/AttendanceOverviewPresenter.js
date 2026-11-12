@@ -2,7 +2,7 @@
  * AD16 — Attendance and absence follow-up. Loads the overview totals and
  * today's registers in one pass; the View renders both sections.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class AttendanceOverviewPresenter {
   constructor(attendanceModel) {

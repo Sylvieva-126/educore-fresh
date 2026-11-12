@@ -3,7 +3,7 @@
  * class with its form teacher and counts, the subject list, and a form to
  * add a subject. Class rows open the AD13 workspace.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class AcademicStructurePresenter {
   constructor(structureModel, teacherModel) {

@@ -94,12 +94,12 @@ export default function TeacherFormView({ navigation, route }) {
             value={fullName}
             onChangeText={setFullName}
           />
-          <LabelledField
-            label="Staff number"
-            placeholder="e.g. GST/014 — left empty, one is assigned"
-            value={staffNumber}
-            onChangeText={setStaffNumber}
-          />
+          {state.mode === 'edit' ? (
+            <LabelledField
+              label="Staff number (assigned automatically)"
+              displayValue={staffNumber || '—'}
+            />
+          ) : null}
           <LabelledField
             label="Phone"
             placeholder="e.g. +234 810 444 5050"
@@ -131,11 +131,13 @@ export default function TeacherFormView({ navigation, route }) {
             onPress={() => setClassSheet(true)}
           />
 
-          <PrimaryButton
-            label={state.saving ? 'Saving…' : state.mode === 'edit' ? 'Save changes' : 'Register teacher'}
-            disabled={state.saving}
-            onPress={save}
-          />
+          <View style={styles.actionsWrap}>
+            <PrimaryButton
+              label={state.saving ? 'Saving…' : state.mode === 'edit' ? 'Save changes' : 'Register teacher'}
+              disabled={state.saving}
+              onPress={save}
+            />
+          </View>
         </View>
       ) : null}
 
@@ -171,6 +173,7 @@ export default function TeacherFormView({ navigation, route }) {
 
 const styles = StyleSheet.create({
   notice: { ...typography.body, color: colors.primary, marginBottom: spacing.sm },
+  actionsWrap: { marginTop: spacing.md },
   provisioning: {
     borderWidth: 1,
     borderColor: colors.border,

@@ -6,7 +6,7 @@
  *     validates them, and enrols each row through the normal AD03 endpoint,
  *     so the same code path works when the real Java API is connected.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 import { toCsv, parseCsv, shareOrCopyCsv } from '../api/csv';
 import {
   cleanText,

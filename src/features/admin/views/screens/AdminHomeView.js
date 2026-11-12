@@ -20,7 +20,15 @@ export default function AdminHomeView({ navigation }) {
   useEffect(() => {
     presenter.attach(setState, navigation);
     presenter.load();
-    return () => presenter.detach();
+    // Returning to home (e.g. after correcting a register) re-reads the
+    // totals so they never lag the attendance screens.
+    const unsubscribe = navigation.addListener('focus', () => {
+      presenter.refresh();
+    });
+    return () => {
+      unsubscribe?.remove?.();
+      presenter.detach();
+    };
   }, [presenter, navigation]);
 
   const a = state.attendance || {};

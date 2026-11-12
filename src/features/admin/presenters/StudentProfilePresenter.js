@@ -3,7 +3,7 @@
  * and owns the two guarded actions (class move, withdrawal) with the safe
  * submission states from the design system: draft → saving → accepted/failed.
  */
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/ApiError';
 
 export class StudentProfilePresenter {
   constructor(studentModel) {
