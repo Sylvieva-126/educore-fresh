@@ -12,7 +12,7 @@ import { AttendanceOverviewPresenter } from '../../presenters/AttendanceOverview
 import { AttendanceModel } from '../../models';
 import { typography, spacing } from '../theme';
 
-export default function AttendanceOverviewView() {
+export default function AttendanceOverviewView({ navigation }) {
   const [presenter] = useState(() => new AttendanceOverviewPresenter(AttendanceModel));
   const [state, setState] = useState(presenter.initialState);
 
@@ -78,7 +78,11 @@ export default function AttendanceOverviewView() {
                 r.absentCount ? ` · ${r.absentCount} absent` : ''
               }${r.lateCount ? ` · ${r.lateCount} late` : ''}`,
               status: r.status,
+              raw: r,
             }))}
+            onPressItem={(row) =>
+              navigation.navigate('RegisterReview', { classId: row.raw.classLabel })
+            }
             emptyText="No registers were scheduled for today."
           />
         </>

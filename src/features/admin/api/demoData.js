@@ -766,6 +766,45 @@ const ASSESSMENT_POLICY = {
   ],
 };
 
+/* Subject rules shared by create and edit: Core spans both levels; JSS is
+   junior-only; the named departments are SSS-only. Teachers are assigned per
+   subject and mirrored into the staff records the timetable checks. */
+function subjectRulesProblem(departments, classes) {
+  const allowsJss = departments.includes('Core') || departments.includes('JSS');
+  const allowsSss =
+    departments.includes('Core') ||
+    departments.some((d) => ['Science', 'Humanities / Arts', 'Business / Commercial'].includes(d));
+  const jssClass = classes.find((c) => c.startsWith('JSS'));
+  const sssClass = classes.find((c) => !c.startsWith('JSS'));
+  if (!allowsJss && jssClass) {
+    return 'Science, Humanities and Business subjects are SSS only — JSS classes take Core or JSS subjects.';
+  }
+  if (!allowsSss && sssClass) {
+    return 'Only-JSS subjects are taught in JSS classes only — SSS classes take Core or department subjects.';
+  }
+  return null;
+}
+
+const ACTIVE_TEACHERS = () => TEACHERS.filter((t) => t.status === 'Active');
+
+/** Keep TEACHERS.subjects in step with a subject's assigned-teacher list. */
+function syncSubjectTeachers(subject, teacherNames) {
+  TEACHERS.forEach((t) => {
+    const has = (t.subjects || []).includes(subject.name);
+    const should = teacherNames.includes(t.fullName);
+    if (should && !has) t.subjects = [...(t.subjects || []), subject.name];
+    if (!should && has) t.subjects = (t.subjects || []).filter((s) => s !== subject.name);
+  });
+}
+
+/** Refuse a teachers list that names somebody who is not active staff. */
+function unknownTeacherProblem(teacherNames) {
+  const bad = (teacherNames || []).find(
+    (n) => !ACTIVE_TEACHERS().some((t) => t.fullName === n),
+  );
+  return bad ? `${bad} is not an active teacher.` : null;
+}
+
 export async function demoRequest({ path: route, method = 'GET', query = {}, body = null }) {
   await new Promise((resolve) => setTimeout(resolve, 250)); // let loading states show
   const m = String(method || 'GET').toUpperCase();
@@ -896,26 +935,20 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       const classes = Array.isArray(body && body.classes)
         ? body.classes.filter((c) => CLASS_NAMES.includes(c))
         : [];
+      const teachers = Array.isArray(body && body.teachers) ? body.teachers : [];
       const KNOWN_DEPARTMENTS = ['Core', 'JSS', 'Science', 'Humanities / Arts', 'Business / Commercial'];
       const unknownDept = departments.find((d) => !KNOWN_DEPARTMENTS.includes(d));
       if (unknownDept) {
         return { ok: false, error: `${unknownDept} is not one of the school's departments.` };
       }
-      // JSS classes take Core or JSS subjects only — SSS departments lock the
-      // class list to SSS.
-      const allowsJss = departments.includes('Core') || departments.includes('JSS');
-      const jssClass = classes.find((c) => c.startsWith('JSS'));
-      if (!allowsJss && jssClass) {
-        return {
-          ok: false,
-          error:
-            'Science, Humanities and Business subjects are SSS only — JSS classes take Core or JSS subjects.',
-        };
-      }
       if (!name) return { ok: false, error: 'Name the subject.' };
       if (departments.length === 0) {
         return { ok: false, error: 'Tag at least one department it belongs to.' };
       }
+      const ruleProblem = subjectRulesProblem(departments, classes);
+      if (ruleProblem) return { ok: false, error: ruleProblem };
+      const teacherProblem = unknownTeacherProblem(teachers);
+      if (teacherProblem) return { ok: false, error: teacherProblem };
       if (SUBJECTS.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
         return { ok: false, error: `${name} already exists in the subject list.` };
       }
@@ -925,8 +958,57 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
         department: departments[0], // primary department, for older readers
         departments,
         classes,
+        teachers,
       };
       SUBJECTS.push(subject);
+      syncSubjectTeachers(subject, teachers);
+      return { ok: true, subject };
+    }
+  }
+
+  if (seg[0] === 'subjects' && seg.length === 2) {
+    // AD12 — edit a subject later: name, departments, classes and teachers.
+    const subject = SUBJECTS.find((s) => s.id === seg[1]);
+    if (!subject) return { ok: false, error: 'Subject not found.' };
+    if (m === 'GET') return subject;
+    if (m === 'PATCH') {
+      const b = body || {};
+      if (b.name !== undefined) {
+        const name = String(b.name).trim();
+        if (!name) return { ok: false, error: 'Name the subject.' };
+        if (
+          SUBJECTS.some((s) => s.id !== subject.id && s.name.toLowerCase() === name.toLowerCase())
+        ) {
+          return { ok: false, error: `${name} already exists in the subject list.` };
+        }
+        // Renaming follows through to the staff records that list the subject.
+        TEACHERS.forEach((t) => {
+          if ((t.subjects || []).includes(subject.name)) {
+            t.subjects = t.subjects.map((s) => (s === subject.name ? name : s));
+          }
+        });
+        subject.name = name;
+      }
+      const departments = Array.isArray(b.departments) ? b.departments : subject.departments;
+      const classes = Array.isArray(b.classes)
+        ? b.classes.filter((c) => CLASS_NAMES.includes(c))
+        : subject.classes;
+      const KNOWN_DEPARTMENTS = ['Core', 'JSS', 'Science', 'Humanities / Arts', 'Business / Commercial'];
+      const unknownDept = departments.find((d) => !KNOWN_DEPARTMENTS.includes(d));
+      if (unknownDept) return { ok: false, error: `${unknownDept} is not one of the school's departments.` };
+      if (departments.length === 0) {
+        return { ok: false, error: 'Tag at least one department it belongs to.' };
+      }
+      const ruleProblem = subjectRulesProblem(departments, classes);
+      if (ruleProblem) return { ok: false, error: ruleProblem };
+      subject.departments = departments;
+      subject.department = departments[0];
+      subject.classes = classes;
+      const teachers = Array.isArray(b.teachers) ? b.teachers : subject.teachers || [];
+      const teacherProblem = unknownTeacherProblem(teachers);
+      if (teacherProblem) return { ok: false, error: teacherProblem };
+      subject.teachers = teachers;
+      syncSubjectTeachers(subject, teachers);
       return { ok: true, subject };
     }
   }
@@ -1128,6 +1210,9 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       }
       if (!Number.isFinite(pass) || pass < 0 || pass > 100) {
         return { ok: false, error: 'The pass mark must be between 0 and 100.' };
+      }
+      if (pass <= 33) {
+        return { ok: false, error: 'The pass mark must be above 33 — set it at 34% or more.' };
       }
       const grades = Array.isArray(b.grades) ? b.grades : ASSESSMENT_POLICY.grades;
       for (let i = 1; i < grades.length; i++) {

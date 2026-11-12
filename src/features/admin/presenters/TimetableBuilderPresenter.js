@@ -80,10 +80,13 @@ export class TimetableBuilderPresenter {
         this.structureModel.subjects(),
         this.model.assignmentCandidates(),
       ]);
+      const classLabel = draft.classLabel;
+      const inClass = (s) => s.classes.includes(classLabel);
       this._setState({
         status: 'content',
         draft,
-        subjects: subjectsPage.items.filter((s) => s.classes.includes(draft.classLabel)),
+        // Every subject is offered; the class's own subjects sort first.
+        subjects: [...subjectsPage.items].sort((a, b) => (inClass(b) ? 1 : 0) - (inClass(a) ? 1 : 0)),
         teachers: teachersPage.items,
         errorText: null,
       });
@@ -114,20 +117,66 @@ export class TimetableBuilderPresenter {
     }
   }
 
-  /** Append an activity period (Sports, PE, Study Time…) to a day, then save. */
-  async addActivity(day, activity) {
+  /** Point an empty period at an activity instead of a subject. */
+  async fillActivity(day, period, activity) {
+    const draft = this.state.draft;
+    if (!draft || this.state.saving) return;
+    const slots = draft.slots.map((s) =>
+      s.day === day && s.period === period
+        ? { ...s, subject: null, teacherName: null, activity }
+        : s,
+    );
+    this._setState({ saving: true, errorText: null });
+    try {
+      const saved = await this.model.saveDraft(draft.id, { slots });
+      this._setState({ saving: false, draft: saved.draft });
+    } catch (error) {
+      this._setState({
+        saving: false,
+        errorText: error instanceof ApiError ? error.message : 'The period was not saved.',
+      });
+    }
+  }
+
+  /** Set or override one period's time label (any format the school uses). */
+  async setTime(day, period, time) {
+    const draft = this.state.draft;
+    if (!draft || this.state.saving) return;
+    const slots = draft.slots.map((s) => (s.day === day && s.period === period ? { ...s, time } : s));
+    this._setState({ saving: true, errorText: null });
+    try {
+      const saved = await this.model.saveDraft(draft.id, { slots });
+      this._setState({ saving: false, draft: saved.draft, notice: `Period time set — ${time}.` });
+    } catch (error) {
+      this._setState({
+        saving: false,
+        errorText: error instanceof ApiError ? error.message : 'The time was not saved.',
+      });
+    }
+  }
+
+  /** Append a new period to a day: a subject with its teacher, or an activity. */
+  async appendSlot(day, payload) {
     const draft = this.state.draft;
     if (!draft || this.state.saving) return;
     const nextPeriod = draft.slots.filter((s) => s.day === day).length + 1;
     if (nextPeriod > 8) return;
     const slots = [
       ...draft.slots,
-      { day, period: nextPeriod, time: periodTime(nextPeriod), subject: null, teacherName: null, activity },
+      {
+        day,
+        period: nextPeriod,
+        time: periodTime(nextPeriod),
+        subject: null,
+        teacherName: null,
+        activity: null,
+        ...payload,
+      },
     ];
     this._setState({ saving: true, errorText: null });
     try {
       const saved = await this.model.saveDraft(draft.id, { slots });
-      this._setState({ saving: false, draft: saved.draft, notice: `${activity} added to ${day}.` });
+      this._setState({ saving: false, draft: saved.draft });
     } catch (error) {
       this._setState({
         saving: false,
@@ -136,7 +185,7 @@ export class TimetableBuilderPresenter {
     }
   }
 
-  /** Remove a period from a day; the rest of that day renumbers so times stay aligned. */
+  /** Remove a period from a day; that day renumbers, keeping each period's time. */
   async removeSlot(day, period) {
     const draft = this.state.draft;
     if (!draft || this.state.saving) return;
@@ -144,7 +193,7 @@ export class TimetableBuilderPresenter {
     const dayRest = draft.slots
       .filter((s) => s.day === day && s.period !== period)
       .sort((a, b) => a.period - b.period)
-      .map((s, i) => ({ ...s, period: i + 1, time: periodTime(i + 1) }));
+      .map((s, i) => ({ ...s, period: i + 1 }));
     this._setState({ saving: true, errorText: null });
     try {
       const saved = await this.model.saveDraft(draft.id, { slots: [...rest, ...dayRest] });

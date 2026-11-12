@@ -129,6 +129,7 @@ export default function AssessmentRulesView({ navigation }) {
         placeholder="40"
         placeholderTextColor={colors.muted}
       />
+      <Text style={styles.hint}>Must be above 33 — the school's floor is 34%, and 100 at most.</Text>
 
       <Text style={styles.section}>Grade bands — the score each grade starts at</Text>
       {policy.grades.map((g) => (

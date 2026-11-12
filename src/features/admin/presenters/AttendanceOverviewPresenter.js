@@ -37,14 +37,16 @@ export class AttendanceOverviewPresenter {
   async load() {
     this._setState({ status: 'loading', errorText: null });
     try {
-      const [overview, registers] = await Promise.all([
+      // The register list spans two pages (21 rows against a page size of 20).
+      const [overview, page1, page2] = await Promise.all([
         this.model.overview(),
         this.model.registers({ page: 1 }),
+        this.model.registers({ page: 2 }),
       ]);
       this._setState({
         status: 'content',
         overview: overview || {},
-        registers: registers.items || [],
+        registers: [...(page1.items || []), ...((page2 && page2.items) || [])],
       });
     } catch (error) {
       this._setState({

@@ -1,14 +1,16 @@
 /**
  * AD14 — Build the weekly timetable (View). Day sections with one row per
- * period; tapping a period opens the subject sheet, then the teacher sheet.
+ * period. Tapping a period opens a menu: fill it (subject or activity),
+ * change its subject or its time, or remove it. "+ Add a period" appends a
+ * fresh one to a day. A period's teacher must be the subject's assigned one.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Alert, StyleSheet } from 'react-native';
+import { View, Text, Alert, Modal, TextInput, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import SelectSheet from '../components/SelectSheet';
 import { LoadingView, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
-import { SecondaryButton } from './AdminHomeView';
+import { PrimaryButton, SecondaryButton } from './AdminHomeView';
 import { TimetableBuilderPresenter } from '../../presenters/TimetableBuilderPresenter';
 import { TimetableModel, AcademicStructureModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
@@ -23,12 +25,13 @@ export default function TimetableBuilderView({ navigation, route }) {
   const [state, setState] = useState(presenter.initialState);
   const loadedOnce = useRef(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [pendingSlot, setPendingSlot] = useState(null); // { day, period }
+  const [pendingSlot, setPendingSlot] = useState(null); // { day, period } — an existing period
+  const [addDay, setAddDay] = useState(null); // a day to append a brand-new period to
   const [pendingSubject, setPendingSubject] = useState(null);
   const [subjectSheet, setSubjectSheet] = useState(false);
   const [teacherSheet, setTeacherSheet] = useState(false);
-  const [activityDay, setActivityDay] = useState(null);
   const [activitySheet, setActivitySheet] = useState(false);
+  const [timeTarget, setTimeTarget] = useState(null); // { day, period, value }
   const initialClassId = route.params && route.params.classId;
 
   useEffect(() => {
@@ -49,7 +52,7 @@ export default function TimetableBuilderView({ navigation, route }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presenter, navigation, initialClassId]);
 
-  // Guard refusals (already published, incomplete draft…) pop up.
+  // Guard refusals (already published, mismatched teacher…) pop up.
   useActionErrorAlert(state.errorText);
 
   const draft = state.draft;
@@ -57,25 +60,65 @@ export default function TimetableBuilderView({ navigation, route }) {
     ? draft.slots.filter((s) => s.subject || s.activity).length
     : 0;
 
+  const openTimeEditor = (slot) => {
+    setTimeTarget({ day: slot.day, period: slot.period, value: slot.time || '' });
+  };
+
   const onSlotPress = (slot) => {
     if (!slot) return;
-    if (slot.activity) {
-      Alert.alert(
-        'Remove this period?',
-        `${slot.day}, period ${slot.period} — ${slot.activity}. The rest of the day renumbers.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Remove',
-            style: 'destructive',
-            onPress: () => presenter.removeSlot(slot.day, slot.period),
+    if (slot.subject) {
+      Alert.alert(`Period ${slot.period} — ${slot.subject}`, 'What do you want to change?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove period',
+          style: 'destructive',
+          onPress: () => presenter.removeSlot(slot.day, slot.period),
+        },
+        { text: 'Change time', onPress: () => openTimeEditor(slot) },
+        {
+          text: 'Change subject',
+          onPress: () => {
+            setPendingSlot({ day: slot.day, period: slot.period });
+            setSubjectSheet(true);
           },
-        ],
-      );
+        },
+      ]);
       return;
     }
-    setPendingSlot({ day: slot.day, period: slot.period });
-    setSubjectSheet(true);
+    if (slot.activity) {
+      Alert.alert(`Period ${slot.period} — ${slot.activity}`, 'What do you want to change?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove period',
+          style: 'destructive',
+          onPress: () => presenter.removeSlot(slot.day, slot.period),
+        },
+        { text: 'Change time', onPress: () => openTimeEditor(slot) },
+      ]);
+      return;
+    }
+    Alert.alert(
+      `${slot.day}, period ${slot.period} · ${slot.time} is empty`,
+      'Fill it with what?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Change time', onPress: () => openTimeEditor(slot) },
+        {
+          text: 'Activity',
+          onPress: () => {
+            setPendingSlot({ day: slot.day, period: slot.period });
+            setActivitySheet(true);
+          },
+        },
+        {
+          text: 'Subject',
+          onPress: () => {
+            setPendingSlot({ day: slot.day, period: slot.period });
+            setSubjectSheet(true);
+          },
+        },
+      ],
+    );
   };
 
   const onSubjectPicked = (subject) => {
@@ -85,10 +128,11 @@ export default function TimetableBuilderView({ navigation, route }) {
     const hasTeacher = state.teachers.some((t) => (t.subjects || []).includes(subject));
     if (!hasTeacher) {
       setPendingSlot(null);
+      setAddDay(null);
       setPendingSubject(null);
       Alert.alert(
         'No teacher assigned',
-        `No active teacher is assigned to ${subject} yet — assign it in the staff records first, or pick another subject.`,
+        `No active teacher is assigned to ${subject} yet — open "Classes, subjects and departments", tap the subject and assign a teacher, or pick another subject.`,
       );
       return;
     }
@@ -99,9 +143,34 @@ export default function TimetableBuilderView({ navigation, route }) {
     setTeacherSheet(false);
     if (pendingSlot && pendingSubject) {
       presenter.fillSlot(pendingSlot.day, pendingSlot.period, pendingSubject, teacherName);
+    } else if (addDay && pendingSubject) {
+      presenter.appendSlot(addDay, { subject: pendingSubject, teacherName });
     }
     setPendingSlot(null);
+    setAddDay(null);
     setPendingSubject(null);
+  };
+
+  const onActivityPicked = (activity) => {
+    setActivitySheet(false);
+    if (pendingSlot) {
+      presenter.fillActivity(pendingSlot.day, pendingSlot.period, activity);
+    } else if (addDay) {
+      presenter.appendSlot(addDay, { activity });
+    }
+    setPendingSlot(null);
+    setAddDay(null);
+  };
+
+  const onSaveTime = () => {
+    const value = ((timeTarget && timeTarget.value) || '').trim();
+    if (!value) {
+      setTimeTarget(null);
+      Alert.alert('Enter a time', 'Type the period time first — e.g. 08:00 – 08:40.');
+      return;
+    }
+    presenter.setTime(timeTarget.day, timeTarget.period, value);
+    setTimeTarget(null);
   };
 
   return (
@@ -143,7 +212,7 @@ export default function TimetableBuilderView({ navigation, route }) {
                       ? `${slot.activity} — no teacher needed`
                       : slot.subject
                         ? `${slot.subject} · ${slot.teacherName}`
-                        : 'Empty — tap to fill',
+                        : 'Empty — tap for options',
                     status: slot.activity ? 'Activity' : slot.subject ? 'Filled' : 'Empty',
                     raw: slot,
                   }))}
@@ -155,8 +224,23 @@ export default function TimetableBuilderView({ navigation, route }) {
                     label={`+ Add a period on ${day}`}
                     disabled={state.saving}
                     onPress={() => {
-                      setActivityDay(day);
-                      setActivitySheet(true);
+                      Alert.alert(`Add a period on ${day}`, 'What kind of period?', [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Activity',
+                          onPress: () => {
+                            setAddDay(day);
+                            setActivitySheet(true);
+                          },
+                        },
+                        {
+                          text: 'Teaching period',
+                          onPress: () => {
+                            setAddDay(day);
+                            setSubjectSheet(true);
+                          },
+                        },
+                      ]);
                     }}
                   />
                 ) : null}
@@ -164,11 +248,14 @@ export default function TimetableBuilderView({ navigation, route }) {
             );
           })}
 
-          <SecondaryButton
-            label={state.sendingReview ? 'Sending…' : 'Send for review'}
-            disabled={state.sendingReview || draft.status === 'Published'}
-            onPress={() => presenter.sendForReview()}
-          />
+          {/* Breathing room so "Send for review" never touches the last day's add button. */}
+          <View style={styles.actions}>
+            <SecondaryButton
+              label={state.sendingReview ? 'Sending…' : 'Send for review'}
+              disabled={state.sendingReview || draft.status === 'Published'}
+              onPress={() => presenter.sendForReview()}
+            />
+          </View>
         </View>
       ) : null}
 
@@ -184,8 +271,20 @@ export default function TimetableBuilderView({ navigation, route }) {
       />
       <SelectSheet
         visible={subjectSheet}
-        label={`${pendingSlot ? `${pendingSlot.day}, period ${pendingSlot.period}` : 'Period'} — which subject?`}
-        options={state.subjects.map((s) => ({ label: s.name, value: s.name }))}
+        label={
+          pendingSlot
+            ? `${pendingSlot.day}, period ${pendingSlot.period} — which subject?`
+            : addDay
+              ? `New period on ${addDay} — which subject?`
+              : 'Which subject?'
+        }
+        options={state.subjects.map((s) => ({
+          label:
+            draft && s.classes.includes(draft.classLabel)
+              ? s.name
+              : `${s.name} — not assigned to ${draft ? draft.classLabel : 'this class'}`,
+          value: s.name,
+        }))}
         onSelect={onSubjectPicked}
         onClose={() => setSubjectSheet(false)}
       />
@@ -200,15 +299,45 @@ export default function TimetableBuilderView({ navigation, route }) {
       />
       <SelectSheet
         visible={activitySheet}
-        label={`${activityDay || 'The day'} — which activity?`}
+        label={
+          pendingSlot
+            ? `${pendingSlot.day}, period ${pendingSlot.period} — which activity?`
+            : addDay
+              ? `New period on ${addDay} — which activity?`
+              : 'Which activity?'
+        }
         options={ACTIVITIES}
-        onSelect={(value) => {
-          setActivitySheet(false);
-          if (activityDay) presenter.addActivity(activityDay, value);
-          setActivityDay(null);
-        }}
+        onSelect={onActivityPicked}
         onClose={() => setActivitySheet(false)}
       />
+
+      <Modal
+        visible={Boolean(timeTarget)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTimeTarget(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Period time</Text>
+            <Text style={styles.modalHint}>
+              Any format the school uses — the default periods ship as 08:00 – 08:40 etc.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={timeTarget ? timeTarget.value : ''}
+              onChangeText={(t) => setTimeTarget((prev) => ({ ...prev, value: t }))}
+              placeholder="e.g. 08:00 – 08:40"
+              placeholderTextColor={colors.muted}
+              autoFocus
+            />
+            <View style={styles.modalActions}>
+              <SecondaryButton label="Cancel" onPress={() => setTimeTarget(null)} />
+              <PrimaryButton label="Save time" onPress={onSaveTime} />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </AdminScaffold>
   );
 }
@@ -217,4 +346,30 @@ const styles = StyleSheet.create({
   notice: { ...typography.body, color: colors.primary, marginBottom: spacing.sm },
   publishedNote: { ...typography.label, color: colors.muted, marginBottom: spacing.sm },
   section: { ...typography.sectionTitle, marginTop: spacing.md, marginBottom: spacing.sm },
+  actions: { marginTop: spacing.md },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.md,
+  },
+  modalCard: {
+    backgroundColor: colors.surface || '#fff',
+    borderRadius: 14,
+    padding: spacing.md,
+    width: '100%',
+  },
+  modalTitle: { ...typography.sectionTitle, marginBottom: spacing.xs },
+  modalHint: { ...typography.label, color: colors.muted, marginBottom: spacing.sm },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    ...typography.body,
+    marginBottom: spacing.sm,
+  },
+  modalActions: { flexDirection: 'row', gap: spacing.sm },
 });

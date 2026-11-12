@@ -1,6 +1,7 @@
 /**
  * AD12 — Classes, subjects and departments (View). Classes open the AD13
- * workspace; subjects are listed under it; a small form adds a subject.
+ * workspace; subjects are listed under it (tap one to edit it); a small form
+ * adds a subject with its departments, classes and assigned teachers.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -11,7 +12,7 @@ import { LoadingView, ErrorState, useActionErrorAlert } from '../components/Feed
 import LabelledField from '../components/LabelledField';
 import { SecondaryButton } from './AdminHomeView';
 import { AcademicStructurePresenter } from '../../presenters/AcademicStructurePresenter';
-import { AcademicStructureModel } from '../../models';
+import { AcademicStructureModel, TeacherModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
 
 const DEPARTMENTS = ['Core', 'JSS', 'Science', 'Humanities / Arts', 'Business / Commercial'].map(
@@ -22,27 +23,42 @@ const CLASSES = ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A', 'SSS1 A', 'SSS2 A', 'SS
 );
 
 export default function AcademicStructureView({ navigation }) {
-  const [presenter] = useState(() => new AcademicStructurePresenter(AcademicStructureModel));
+  const [presenter] = useState(() => new AcademicStructurePresenter(AcademicStructureModel, TeacherModel));
   const [state, setState] = useState(presenter.initialState);
   const loadedOnce = useRef(false);
   const [subjectName, setSubjectName] = useState('');
   const [subjectDepts, setSubjectDepts] = useState([]);
   const [subjectClasses, setSubjectClasses] = useState([]);
+  const [subjectTeachers, setSubjectTeachers] = useState([]);
+  const [editingSubject, setEditingSubject] = useState(null);
   const [deptSheet, setDeptSheet] = useState(false);
   const [classSheet, setClassSheet] = useState(false);
+  const [teacherSheet, setTeacherSheet] = useState(false);
 
-  // Rule: JSS classes take Core or JSS subjects only — picking only SSS
-  // departments hides the JSS classes and drops any already-ticked ones.
-  const jssAllowed = subjectDepts.includes('Core') || subjectDepts.includes('JSS');
+  // Class rules, both directions: Core spans JSS + SSS; JSS-only subjects are
+  // junior; the named departments are senior-only. With nothing ticked the
+  // whole list shows.
+  const allowJss =
+    subjectDepts.length === 0 ||
+    subjectDepts.includes('Core') ||
+    subjectDepts.includes('JSS');
+  const allowSss =
+    subjectDepts.length === 0 ||
+    subjectDepts.includes('Core') ||
+    subjectDepts.some((d) => ['Science', 'Humanities / Arts', 'Business / Commercial'].includes(d));
 
   const toggleDept = (value) => {
     const next = subjectDepts.includes(value)
       ? subjectDepts.filter((d) => d !== value)
       : [...subjectDepts, value];
     setSubjectDepts(next);
-    if (!(next.includes('Core') || next.includes('JSS'))) {
-      setSubjectClasses((prev) => prev.filter((c) => !c.startsWith('JSS')));
-    }
+    const nextAllowsJss = next.length === 0 || next.includes('Core') || next.includes('JSS');
+    const nextAllowsSss =
+      next.length === 0 ||
+      next.includes('Core') ||
+      next.some((d) => ['Science', 'Humanities / Arts', 'Business / Commercial'].includes(d));
+    if (!nextAllowsJss) setSubjectClasses((prev) => prev.filter((c) => c.startsWith('JSS')));
+    if (!nextAllowsSss) setSubjectClasses((prev) => prev.filter((c) => !c.startsWith('JSS')));
   };
   const toggleClass = (value) => {
     setSubjectClasses((prev) =>
@@ -74,9 +90,42 @@ export default function AcademicStructureView({ navigation }) {
   const subjectRows = state.subjects.map((s) => ({
     id: s.id,
     title: s.name,
-    meta: `${(s.departments || [s.department]).join(' · ')} · ${s.classes.length} classes`,
+    meta: `${(s.departments || [s.department]).join(' · ')} · ${s.classes.length} classes · ${
+      (s.teachers || []).length
+    } teacher${(s.teachers || []).length === 1 ? '' : 's'}`,
     status: (s.departments || [s.department])[0],
+    raw: s,
   }));
+
+  /** Tap a subject to edit it — the form below switches to edit mode. */
+  const openSubjectEditor = (subject) => {
+    setEditingSubject(subject);
+    setSubjectName(subject.name);
+    setSubjectDepts(subject.departments || [subject.department].filter(Boolean));
+    setSubjectClasses(subject.classes || []);
+    setSubjectTeachers(subject.teachers || []);
+  };
+
+  const clearSubjectForm = () => {
+    setEditingSubject(null);
+    setSubjectName('');
+    setSubjectDepts([]);
+    setSubjectClasses([]);
+    setSubjectTeachers([]);
+  };
+
+  const saveSubjectForm = async () => {
+    const fields = {
+      name: subjectName,
+      departments: subjectDepts,
+      classes: subjectClasses,
+      teachers: subjectTeachers,
+    };
+    const ok = editingSubject
+      ? await presenter.updateSubject(editingSubject.id, fields)
+      : await presenter.addSubject(fields);
+    if (ok) clearSubjectForm();
+  };
 
   // Action errors (duplicate subject refused, empty fields) pop up.
   useActionErrorAlert(state.errorText);
@@ -106,9 +155,15 @@ export default function AcademicStructureView({ navigation }) {
           />
 
           <Text style={styles.section}>Subjects</Text>
-          <RecordList items={subjectRows} emptyText="No subjects yet — add the first one below." />
+          <RecordList
+            items={subjectRows}
+            onPressItem={(row) => openSubjectEditor(row.raw)}
+            emptyText="No subjects yet — add the first one below."
+          />
 
-          <Text style={styles.section}>Add a subject</Text>
+          <Text style={styles.section}>
+            {editingSubject ? `Edit subject — ${editingSubject.name}` : 'Add a subject'}
+          </Text>
           <LabelledField
             label="Subject name"
             placeholder="e.g. Computer Studies"
@@ -129,34 +184,42 @@ export default function AcademicStructureView({ navigation }) {
           />
           <LabelledField
             label={
-              jssAllowed
-                ? 'Taught in (classes)'
-                : 'Taught in (classes) — JSS hidden: SSS department only'
+              !allowJss
+                ? 'Taught in (classes) — JSS hidden: SSS department only'
+                : !allowSss
+                  ? 'Taught in (classes) — SSS hidden: JSS subject only'
+                  : 'Taught in (classes)'
             }
             placeholder="e.g. only the JSS classes — tap to tick"
             displayValue={
               subjectClasses.length
-                ? subjectClasses.length === CLASSES.length
+                ? subjectClasses.length === CLASSES.filter((c) => allowJss || !c.value.startsWith('JSS')).filter((c) => allowSss || !c.value.startsWith('JSS')).length
                   ? 'All shown classes'
                   : `${subjectClasses.length} classes selected`
                 : ''
             }
             onPress={() => setClassSheet(true)}
           />
-          <SecondaryButton
-            label={state.savingSubject ? 'Saving…' : 'Add subject'}
-            disabled={state.savingSubject}
-            onPress={() => {
-              presenter.addSubject({
-                name: subjectName,
-                departments: subjectDepts,
-                classes: subjectClasses,
-              });
-              setSubjectName('');
-              setSubjectDepts([]);
-              setSubjectClasses([]);
-            }}
+          <LabelledField
+            label="Assigned teachers"
+            placeholder="Tap to tick — the timetable only allows assigned teachers"
+            displayValue={
+              subjectTeachers.length
+                ? subjectTeachers.length === 1
+                  ? subjectTeachers[0]
+                  : `${subjectTeachers.length} teachers assigned`
+                : ''
+            }
+            onPress={() => setTeacherSheet(true)}
           />
+          <SecondaryButton
+            label={state.savingSubject ? 'Saving…' : editingSubject ? 'Save changes' : 'Add subject'}
+            disabled={state.savingSubject}
+            onPress={saveSubjectForm}
+          />
+          {editingSubject ? (
+            <SecondaryButton label="Cancel editing" disabled={state.savingSubject} onPress={clearSubjectForm} />
+          ) : null}
 
           <SelectSheet
             visible={deptSheet}
@@ -170,15 +233,30 @@ export default function AcademicStructureView({ navigation }) {
           <SelectSheet
             visible={classSheet}
             label={
-              jssAllowed
-                ? 'Classes this subject is taught in'
-                : 'Classes this subject is taught in — SSS only'
+              !allowJss
+                ? 'Classes this subject is taught in — SSS only'
+                : !allowSss
+                  ? 'Classes this subject is taught in — JSS only'
+                  : 'Classes this subject is taught in'
             }
-            options={CLASSES.filter((c) => jssAllowed || !c.value.startsWith('JSS'))}
+            options={CLASSES.filter((c) => (allowJss || !c.value.startsWith('JSS')) && (allowSss || c.value.startsWith('JSS')))}
             multiple
             selectedValues={subjectClasses}
             onToggle={toggleClass}
             onClose={() => setClassSheet(false)}
+          />
+          <SelectSheet
+            visible={teacherSheet}
+            label="Assigned teachers — tap to tick, then Done"
+            options={state.teachers.map((t) => ({ label: t.name, value: t.name }))}
+            multiple
+            selectedValues={subjectTeachers}
+            onToggle={(value) =>
+              setSubjectTeachers((prev) =>
+                prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value],
+              )
+            }
+            onClose={() => setTeacherSheet(false)}
           />
         </View>
       ) : null}

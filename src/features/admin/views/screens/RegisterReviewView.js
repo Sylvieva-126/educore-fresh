@@ -119,7 +119,7 @@ export default function RegisterReviewView({ navigation, route }) {
           <Text style={styles.hint}>Tap a student to correct their status.</Text>
           <RecordList
             items={rows}
-            onPressItem={onEntryPress}
+            onPressItem={(row) => onEntryPress(row.raw)}
             emptyText="Nobody is on this register — the class has no active students."
           />
           <SecondaryButton label="Back to registers" onPress={() => presenter.backToRegisters()} />
