@@ -218,7 +218,9 @@ export default function AcademicStructureView({ navigation }) {
             onPress={saveSubjectForm}
           />
           {editingSubject ? (
-            <SecondaryButton label="Cancel editing" disabled={state.savingSubject} onPress={clearSubjectForm} />
+            <View style={styles.cancelWrap}>
+              <SecondaryButton label="Cancel editing" disabled={state.savingSubject} onPress={clearSubjectForm} />
+            </View>
           ) : null}
 
           <SelectSheet
@@ -268,4 +270,5 @@ const styles = StyleSheet.create({
   notice: { ...typography.body, color: colors.primary, marginBottom: spacing.sm },
   error: { ...typography.label, color: '#a33a2a', marginBottom: spacing.sm },
   section: { ...typography.sectionTitle, marginTop: spacing.md, marginBottom: spacing.sm },
+  cancelWrap: { marginTop: spacing.xs },
 });

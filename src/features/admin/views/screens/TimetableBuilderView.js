@@ -67,20 +67,29 @@ export default function TimetableBuilderView({ navigation, route }) {
   const onSlotPress = (slot) => {
     if (!slot) return;
     if (slot.subject) {
+      // Android shows at most three Alert buttons — keep every menu at three
+      // and put the rarer actions one tap deeper ("More…").
       Alert.alert(`Period ${slot.period} — ${slot.subject}`, 'What do you want to change?', [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove period',
-          style: 'destructive',
-          onPress: () => presenter.removeSlot(slot.day, slot.period),
-        },
         { text: 'Change time', onPress: () => openTimeEditor(slot) },
         {
-          text: 'Change subject',
-          onPress: () => {
-            setPendingSlot({ day: slot.day, period: slot.period });
-            setSubjectSheet(true);
-          },
+          text: 'More…',
+          onPress: () =>
+            Alert.alert(`Period ${slot.period} — ${slot.subject}`, 'Change the content or remove it?', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Remove period',
+                style: 'destructive',
+                onPress: () => presenter.removeSlot(slot.day, slot.period),
+              },
+              {
+                text: 'Change subject',
+                onPress: () => {
+                  setPendingSlot({ day: slot.day, period: slot.period });
+                  setSubjectSheet(true);
+                },
+              },
+            ]),
         },
       ]);
       return;
@@ -88,12 +97,12 @@ export default function TimetableBuilderView({ navigation, route }) {
     if (slot.activity) {
       Alert.alert(`Period ${slot.period} — ${slot.activity}`, 'What do you want to change?', [
         { text: 'Cancel', style: 'cancel' },
+        { text: 'Change time', onPress: () => openTimeEditor(slot) },
         {
           text: 'Remove period',
           style: 'destructive',
           onPress: () => presenter.removeSlot(slot.day, slot.period),
         },
-        { text: 'Change time', onPress: () => openTimeEditor(slot) },
       ]);
       return;
     }
@@ -104,18 +113,25 @@ export default function TimetableBuilderView({ navigation, route }) {
         { text: 'Cancel', style: 'cancel' },
         { text: 'Change time', onPress: () => openTimeEditor(slot) },
         {
-          text: 'Activity',
-          onPress: () => {
-            setPendingSlot({ day: slot.day, period: slot.period });
-            setActivitySheet(true);
-          },
-        },
-        {
-          text: 'Subject',
-          onPress: () => {
-            setPendingSlot({ day: slot.day, period: slot.period });
-            setSubjectSheet(true);
-          },
+          text: 'Fill period…',
+          onPress: () =>
+            Alert.alert(`Fill ${slot.day}, period ${slot.period}`, 'Fill it with what?', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Activity',
+                onPress: () => {
+                  setPendingSlot({ day: slot.day, period: slot.period });
+                  setActivitySheet(true);
+                },
+              },
+              {
+                text: 'Subject',
+                onPress: () => {
+                  setPendingSlot({ day: slot.day, period: slot.period });
+                  setSubjectSheet(true);
+                },
+              },
+            ]),
         },
       ],
     );
@@ -185,7 +201,27 @@ export default function TimetableBuilderView({ navigation, route }) {
     >
       {state.status === 'loading' ? <LoadingView label="Opening the timetable…" /> : null}
       {state.status === 'error' ? (
-        <ErrorState message={state.errorText} onRetry={() => presenter.onRetry()} />
+        <ErrorState
+          message={state.errorText}
+          onRetry={() => {
+            if (state.draft) presenter.openForClass(state.draft.classLabel);
+            else {
+              presenter.pickClass();
+              setPickerOpen(true);
+            }
+          }}
+        />
+      ) : null}
+
+      {/* The class picker was dismissed without choosing — never dead-end:
+          offer the class list again. */}
+      {state.status === 'picking' && !pickerOpen ? (
+        <View>
+          <Text style={styles.pickHint}>
+            Pick a class to open its timetable. The class list is one tap away.
+          </Text>
+          <SecondaryButton label="Choose a class" onPress={() => setPickerOpen(true)} />
+        </View>
       ) : null}
 
       {state.status === 'content' && draft ? (
@@ -346,6 +382,7 @@ const styles = StyleSheet.create({
   notice: { ...typography.body, color: colors.primary, marginBottom: spacing.sm },
   publishedNote: { ...typography.label, color: colors.muted, marginBottom: spacing.sm },
   section: { ...typography.sectionTitle, marginTop: spacing.md, marginBottom: spacing.sm },
+  pickHint: { ...typography.label, color: colors.muted, marginBottom: spacing.sm },
   actions: { marginTop: spacing.md },
   modalBackdrop: {
     flex: 1,

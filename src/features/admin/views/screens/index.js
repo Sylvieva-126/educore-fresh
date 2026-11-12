@@ -10,6 +10,8 @@ import GuardianListView from './GuardianListView';
 import GuardianProfileView from './GuardianProfileView';
 import TeacherListView from './TeacherListView';
 import TeacherProfileView from './TeacherProfileView';
+import TeacherFormView from './TeacherFormView';
+import AdminSettingsView from './AdminSettingsView';
 import FeePlansView from './FeePlansView';
 import AcademicStructureView from './AcademicStructureView';
 import ClassWorkspaceView from './ClassWorkspaceView';
@@ -66,14 +68,24 @@ export const ADMIN_SCREENS = {
     Component: TeacherListView,
     tab: 'More',
   },
-  AD08: { name: 'TeacherForm', title: 'Register or edit a teacher', tab: 'More' },
+  AD08: {
+    name: 'TeacherForm',
+    title: 'Register or edit a teacher',
+    Component: TeacherFormView,
+    tab: 'More',
+  },
   AD09: {
     name: 'TeacherProfile',
     title: 'Teacher profile and responsibilities',
     Component: TeacherProfileView,
     tab: 'More',
   },
-  AD10: { name: 'SchoolSettings', title: 'School settings and admin access', tab: 'More' },
+  AD10: {
+    name: 'SchoolSettings',
+    title: 'School settings and admin access',
+    Component: AdminSettingsView,
+    tab: 'More',
+  },
   AD11: {
     name: 'Calendar',
     title: 'School calendar and daily times',

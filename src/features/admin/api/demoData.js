@@ -805,6 +805,38 @@ function unknownTeacherProblem(teacherNames) {
   return bad ? `${bad} is not an active teacher.` : null;
 }
 
+/** Teacher-side subject sync — the mirror of syncSubjectTeachers: keep every
+    subject's assigned-teachers list in step when a teacher's subjects change. */
+function syncTeacherSubjects(teacher, subjectNames) {
+  SUBJECTS.forEach((s) => {
+    const has = (s.teachers || []).includes(teacher.fullName);
+    const should = subjectNames.includes(s.name);
+    if (should && !has) s.teachers = [...(s.teachers || []), teacher.fullName];
+    if (!should && has) s.teachers = (s.teachers || []).filter((n) => n !== teacher.fullName);
+  });
+}
+
+// AD10 — the school profile the office edits, and the admin memberships
+// ("who can sign in to the admin app, and with what role").
+const SETTINGS = {
+  schoolName: SCHOOL_NAME,
+  address: '14 College Road, Greenfield, Enugu State',
+  phone: '+234 810 000 1010',
+  email: 'office@greenfield.edu.ng',
+  sessionLabel: SESSION_LABEL,
+  termLabel: 'First Term',
+  nextTermBegins: '2027-01-11',
+};
+
+const ADMIN_ROLES = ['Principal', 'Vice Principal', 'Admin', 'Bursar', 'Exams Officer'];
+
+const ADMIN_MEMBERSHIPS = [
+  { id: 'adm-1', fullName: 'Admin (you)', email: 'admin@greenfield.edu.ng', role: 'Principal', status: 'Active', lastLogin: 'Today · 07:40' },
+  { id: 'adm-2', fullName: 'Mrs. Grace Nwankwo', email: 'grace.nwankwo@greenfield.edu.ng', role: 'Vice Principal', status: 'Active', lastLogin: 'Yesterday · 16:05' },
+  { id: 'adm-3', fullName: 'Mr. Samuel Ojo', email: 'samuel.ojo@greenfield.edu.ng', role: 'Exams Officer', status: 'Suspended', lastLogin: '2 weeks ago' },
+];
+let nextAdminId = 4;
+
 export async function demoRequest({ path: route, method = 'GET', query = {}, body = null }) {
   await new Promise((resolve) => setTimeout(resolve, 250)); // let loading states show
   const m = String(method || 'GET').toUpperCase();
@@ -813,7 +845,19 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   const seg = decodeURIComponent(String(route || '')).split('/').filter(Boolean);
 
   // AD01 — dashboard
-  if (seg[0] === 'dashboard' && m === 'GET') return DASHBOARD;
+  if (seg[0] === 'dashboard' && m === 'GET') {
+    // Attendance tiles are computed live so corrections show on the home
+    // screen too — the same numbers AD16 shows.
+    const submitted = ATTENDANCE_REGISTERS.filter((r) => r.status === 'Submitted').length;
+    return {
+      ...DASHBOARD,
+      registersSubmitted: submitted,
+      registersExpected: ATTENDANCE_REGISTERS.length,
+      missingRegisters: ATTENDANCE_REGISTERS.length - submitted,
+      absentStudents: ATTENDANCE_REGISTERS.reduce((n, r) => n + r.absentCount, 0),
+      lateArrivals: ATTENDANCE_REGISTERS.reduce((n, r) => n + r.lateCount, 0),
+    };
+  }
 
   // AD03/AD33 — enrol one student (the import loop reuses this same route).
   // Values are re-cleaned here so hand-built or CSV-sourced rows arrive
@@ -1024,12 +1068,178 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       query.page,
     );
   }
+  // AD08 — register or edit a teacher. Creating queues the account
+  // provisioning workflow (the same flow the backend runs); the profile
+  // fields patch directly, subject assignments go through the changes
+  // endpoint so the subject records stay in sync.
+  if (seg[0] === 'teachers' && seg.length === 1 && m === 'POST') {
+    const b = body || {};
+    const fullName = cleanText(b.fullName);
+    if (!fullName) return { ok: false, error: 'Enter the teacher\'s full name.' };
+    if (b.email && !String(b.email).includes('@')) {
+      return { ok: false, error: 'That email address does not look right.' };
+    }
+    const subjects = Array.isArray(b.subjects) ? b.subjects.filter(Boolean) : [];
+    const unknownSubject = subjects.find((s) => !SUBJECTS.some((sub) => sub.name === s));
+    if (unknownSubject) {
+      return { ok: false, error: `${unknownSubject} is not in the subject list.` };
+    }
+    const formClass = b.formClass && CLASS_NAMES.includes(b.formClass) ? b.formClass : null;
+    const teacher = {
+      id: `tch-${Date.now()}`,
+      fullName,
+      staffNumber: cleanText(b.staffNumber) || `GST/${String(TEACHERS.length + 1).padStart(3, '0')}`,
+      phone: cleanText(b.phone),
+      email: cleanText(b.email),
+      status: 'Active',
+      formClass,
+      subjects,
+      provisioning: 'Queued', // the account workflow runs server-side
+    };
+    TEACHERS.push(teacher);
+    syncTeacherSubjects(teacher, subjects);
+    return { ok: true, teacher, provisioning: { status: 'Queued', detail: 'We are creating the staff account — tap Retry if it stays queued.' } };
+  }
+  if (seg[0] === 'teachers' && seg.length === 2) {
+    const teacher = TEACHERS.find((t) => t.id === seg[1]);
+    if (!teacher) return { ok: false, error: 'Teacher not found.' };
+    if (m === 'GET') return teacher;
+    if (m === 'PATCH') {
+      const b = body || {};
+      if (b.fullName !== undefined && !cleanText(b.fullName)) {
+        return { ok: false, error: 'Enter the teacher\'s full name.' };
+      }
+      if (b.fullName !== undefined) teacher.fullName = cleanText(b.fullName);
+      if (b.staffNumber !== undefined) teacher.staffNumber = cleanText(b.staffNumber);
+      if (b.phone !== undefined) teacher.phone = cleanText(b.phone);
+      if (b.email !== undefined) teacher.email = cleanText(b.email);
+      if (b.formClass !== undefined) {
+        teacher.formClass = b.formClass && CLASS_NAMES.includes(b.formClass) ? b.formClass : null;
+      }
+      return { ok: true, teacher };
+    }
+  }
+  if (seg[0] === 'teachers' && seg.length === 3 && seg[2] === 'assignments' && m === 'GET') {
+    const teacher = TEACHERS.find((t) => t.id === seg[1]);
+    if (!teacher) return { ok: false, error: 'Teacher not found.' };
+    return {
+      ok: true,
+      assignments: (teacher.subjects || []).map((subject, i) => ({
+        id: `asg-${teacher.id}-${i}`,
+        subject,
+        classLabel: teacher.formClass || 'All classes',
+        term: 'First Term',
+      })),
+    };
+  }
+  if (seg[0] === 'teachers' && seg.length === 3 && seg[2] === 'retry-provisioning' && m === 'POST') {
+    const teacher = TEACHERS.find((t) => t.id === seg[1]);
+    if (!teacher) return { ok: false, error: 'Teacher not found.' };
+    teacher.provisioning = 'Provisioned';
+    return { ok: true, provisioning: { status: 'Provisioned', detail: `${teacher.fullName}'s staff account is ready.` } };
+  }
+  if (seg[0] === 'teachers' && seg.length === 3 && seg[2] === 'access-change' && m === 'POST') {
+    const teacher = TEACHERS.find((t) => t.id === seg[1]);
+    if (!teacher) return { ok: false, error: 'Teacher not found.' };
+    const status = (body && body.status) || '';
+    if (!['Active', 'On Leave', 'Suspended'].includes(status)) {
+      return { ok: false, error: 'Pick Active, On Leave or Suspended.' };
+    }
+    teacher.status = status;
+    return { ok: true, teacher };
+  }
+  if (seg[0] === 'teaching-assignment-changes' && m === 'POST') {
+    const teacher = TEACHERS.find((t) => t.id === (body && body.teacherId));
+    if (!teacher) return { ok: false, error: 'Teacher not found.' };
+    const subjects = Array.isArray(body && body.subjects) ? body.subjects.filter(Boolean) : [];
+    const unknownSubject = subjects.find((s) => !SUBJECTS.some((sub) => sub.name === s));
+    if (unknownSubject) {
+      return { ok: false, error: `${unknownSubject} is not in the subject list.` };
+    }
+    teacher.subjects = subjects;
+    syncTeacherSubjects(teacher, subjects);
+    return { ok: true, teacher };
+  }
+  if (seg[0] === 'account-invitations' && m === 'POST') {
+    const email = cleanText(body && body.email);
+    if (!email.includes('@')) return { ok: false, error: 'Enter a valid email to invite.' };
+    return {
+      ok: true,
+      invitation: { id: `inv-${Date.now()}`, email, role: (body && body.role) || 'Teacher', status: 'Invited' },
+    };
+  }
+
+  // AD10 — school settings and admin access.
+  if (seg[0] === 'settings' && m === 'GET') {
+    return { ok: true, settings: SETTINGS };
+  }
+  if (seg[0] === 'settings' && m === 'PATCH') {
+    const b = body || {};
+    if (b.schoolName !== undefined && !cleanText(b.schoolName)) {
+      return { ok: false, error: 'The school needs a name.' };
+    }
+    if (b.schoolName !== undefined) SETTINGS.schoolName = cleanText(b.schoolName);
+    if (b.address !== undefined) SETTINGS.address = cleanText(b.address);
+    if (b.phone !== undefined) SETTINGS.phone = cleanText(b.phone);
+    if (b.email !== undefined) SETTINGS.email = cleanText(b.email);
+    if (b.sessionLabel !== undefined) SETTINGS.sessionLabel = cleanText(b.sessionLabel);
+    if (b.termLabel !== undefined) SETTINGS.termLabel = cleanText(b.termLabel);
+    if (b.nextTermBegins !== undefined) SETTINGS.nextTermBegins = cleanText(b.nextTermBegins);
+    return { ok: true, settings: SETTINGS };
+  }
+  if (seg[0] === 'admin-memberships' && seg.length === 1 && m === 'GET') {
+    return paginate(ADMIN_MEMBERSHIPS, query.page);
+  }
+  if (seg[0] === 'admin-memberships' && seg.length === 1 && m === 'POST') {
+    const b = body || {};
+    const fullName = cleanText(b.fullName);
+    const email = cleanText(b.email);
+    if (!fullName) return { ok: false, error: 'Enter the admin\'s full name.' };
+    if (!email.includes('@')) return { ok: false, error: 'Enter a valid email address.' };
+    if (ADMIN_MEMBERSHIPS.some((a) => a.email.toLowerCase() === email.toLowerCase())) {
+      return { ok: false, error: `${email} already has an admin account.` };
+    }
+    if (!ADMIN_ROLES.includes(b.role)) {
+      return { ok: false, error: 'Pick one of the school\'s admin roles.' };
+    }
+    const membership = {
+      id: `adm-${nextAdminId++}`,
+      fullName,
+      email,
+      role: b.role,
+      status: 'Active',
+      lastLogin: 'Never — invitation sent',
+    };
+    ADMIN_MEMBERSHIPS.push(membership);
+    return { ok: true, membership };
+  }
+  if (seg[0] === 'admin-memberships' && seg.length === 2 && m === 'PATCH') {
+    const membership = ADMIN_MEMBERSHIPS.find((a) => a.id === seg[1]);
+    if (!membership) return { ok: false, error: 'Admin account not found.' };
+    const b = body || {};
+    if (b.role !== undefined && !ADMIN_ROLES.includes(b.role)) {
+      return { ok: false, error: 'Pick one of the school\'s admin roles.' };
+    }
+    if (b.status !== undefined && !['Active', 'Suspended'].includes(b.status)) {
+      return { ok: false, error: 'An admin account is Active or Suspended.' };
+    }
+    if (b.role !== undefined) membership.role = b.role;
+    if (b.status !== undefined) membership.status = b.status;
+    return { ok: true, membership };
+  }
+
   if (seg[0] === 'timetable-drafts' && seg.length === 1) {
     if (m === 'GET') return paginate(TIMETABLE_DRAFTS, query.page);
     if (m === 'POST') {
       const classLabel = ((body && body.classLabel) || '').trim();
+      if (!classLabel) {
+        return { ok: false, error: 'Pick a class from the list first, then try again.' };
+      }
       if (!CLASS_NAMES.includes(classLabel)) {
-        return { ok: false, error: 'Choose a real class for the timetable.' };
+        return {
+          ok: false,
+          error: `"${classLabel}" is not one of this school's classes — pick from the class list.`,
+        };
       }
       if (TIMETABLE_DRAFTS.some((d) => d.classLabel === classLabel && d.status !== 'Published')) {
         return {
@@ -1132,16 +1342,18 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     return { ok: true, draft };
   }
 
-  // AD16/AD17 — attendance: overview, today's registers, per-student rows,
-  // and the office's corrections (absent → present etc.).
+  // AD01/AD16 — one canonical, LIVE attendance overview. Counts are derived
+  // from the registers every call, so corrections reflect everywhere at once.
   if (seg[0] === 'attendance' && seg[1] === 'overview' && seg.length === 2 && m === 'GET') {
+    const submitted = ATTENDANCE_REGISTERS.filter((r) => r.status === 'Submitted').length;
     return {
       ok: true,
-      submitted: ATTENDANCE_REGISTERS.filter((r) => r.status === 'Submitted').length,
-      expected: ATTENDANCE_REGISTERS.length,
+      registersSubmitted: submitted,
+      registersExpected: ATTENDANCE_REGISTERS.length,
+      missingRegisters: ATTENDANCE_REGISTERS.length - submitted,
       absentStudents: ATTENDANCE_REGISTERS.reduce((n, r) => n + r.absentCount, 0),
       lateArrivals: ATTENDANCE_REGISTERS.reduce((n, r) => n + r.lateCount, 0),
-      registers: ATTENDANCE_REGISTERS,
+      correctionRequests: ATTENDANCE_CORRECTIONS.length,
     };
   }
   if (seg[0] === 'attendance' && seg[1] === 'registers' && seg.length === 2 && m === 'GET') {
@@ -1335,20 +1547,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     return { ok: true, applied: result.applied, balanceAfter: invoice.amount - invoice.paid };
   }
 
-  // AD16 — attendance overview, registers, correction requests
-  if (seg[0] === 'attendance' && seg[1] === 'overview' && m === 'GET') {
-    return {
-      schoolName: SCHOOL_NAME,
-      sessionLabel: SESSION_LABEL,
-      termLabel: 'First Term',
-      registersSubmitted: DASHBOARD.registersSubmitted,
-      registersExpected: DASHBOARD.registersExpected,
-      missingRegisters: DASHBOARD.missingRegisters,
-      absentStudents: DASHBOARD.absentStudents,
-      lateArrivals: DASHBOARD.lateArrivals,
-      correctionRequests: ATTENDANCE_CORRECTIONS.length,
-    };
-  }
+  // AD16 — attendance registers (the overview handler above carries totals).
   if (seg[0] === 'attendance' && seg[1] === 'registers' && m === 'GET') {
     // One page holds the whole day — the overview screen shows every register.
     return paginate(ATTENDANCE_REGISTERS, query.page, 50);

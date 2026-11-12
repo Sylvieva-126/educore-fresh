@@ -8,6 +8,7 @@ import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import StatusBadge from '../components/StatusBadge';
 import { LoadingView, EmptyState, ErrorState } from '../components/FeedbackViews';
+import { SecondaryButton } from './AdminHomeView';
 import { TeacherProfilePresenter } from '../../presenters/TeacherProfilePresenter';
 import { TeacherModel } from '../../models';
 import { colors, typography, spacing, statusTone } from '../theme';
@@ -82,6 +83,11 @@ export default function TeacherProfileView({ route, navigation }) {
               meta: t.formClass ? `Including duties in ${t.formClass}` : 'Subject teacher',
             }))}
             emptyText="No subjects assigned yet."
+          />
+
+          <SecondaryButton
+            label="Edit profile, subjects and form class"
+            onPress={() => navigation.navigate('TeacherForm', { teacherId: t.id })}
           />
         </View>
       ) : null}
