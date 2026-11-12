@@ -12,7 +12,7 @@
  * no separate module.js needed (delete module.js in this folder if present).
  */
 import React from 'react';
-import { Text, Pressable, StyleSheet } from 'react-native';
+import { Text, View, Pressable, StyleSheet } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
