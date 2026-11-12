@@ -75,9 +75,11 @@ export class PromotionPreviewPresenter {
       const result = await this.model.createPreview({ classLabel });
       this._setState({
         saving: false,
-        previews: [...this.state.previews, result.preview],
+        previews: result.existing ? this.state.previews : [...this.state.previews, result.preview],
         preview: result.preview,
-        notice: `${classLabel} preview computed — review each student, then save your decisions.`,
+        notice: result.existing
+          ? `${classLabel} already has a preview — opened it for you.`
+          : `${classLabel} preview computed — review each student, then save your decisions.`,
       });
     } catch (error) {
       this._setState({
@@ -109,7 +111,7 @@ export class PromotionPreviewPresenter {
   /** Local decision change — saved in one pass with saveDecisions(). */
   setDecision(studentId, decision) {
     const preview = this.state.preview;
-    if (!preview || preview.status !== 'Draft') return;
+    if (!preview || preview.status === 'Confirmed') return;
     const rows = preview.rows.map((r) =>
       String(r.studentId) === String(studentId) ? { ...r, decision } : r,
     );
@@ -134,11 +136,26 @@ export class PromotionPreviewPresenter {
       const result = await this.model.saveDecisions(preview.id, {
         decisions: preview.rows.map((r) => ({ studentId: r.studentId, decision: r.decision })),
       });
+      // What saving actually does: the class's outcomes are recorded. Students
+      // only MOVE when AD27 confirms — JSS1 A/B/C then become JSS2, and so on.
+      const remaining = this.state.classOptions
+        .map((c) => c.classLabel)
+        .filter(
+          (cl) =>
+            cl !== result.preview.classLabel &&
+            !this.state.previews.some((p) => p.classLabel === cl && p.status !== 'Confirmed'),
+        );
+      const next =
+        remaining.length > 0
+          ? ` Next: build the preview for ${remaining[0]}.`
+          : ' Every class has a preview now — approve them all in "Approve promotion and graduation".';
       this._setState({
         saving: false,
         preview: result.preview,
         previews: this.state.previews.map((p) => (p.id === result.preview.id ? result.preview : p)),
-        notice: 'Decisions saved — validation and confirming happen in "Approve promotion and graduation".',
+        notice:
+          `Decisions saved for ${result.preview.classLabel} — students move up (or repeat, or ` +
+          `graduate) only when this preview is confirmed in "Approve promotion and graduation".${next}`,
       });
     } catch (error) {
       this._setState({

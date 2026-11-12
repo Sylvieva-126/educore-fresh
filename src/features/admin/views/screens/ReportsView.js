@@ -4,7 +4,8 @@
  * bands), and every batch exports.
  */
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Share } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import StatusBadge from '../components/StatusBadge';
@@ -26,13 +27,36 @@ export default function ReportsView({ navigation }) {
   }, [presenter, navigation]);
 
   useActionErrorAlert(state.errorText);
+
+  /** The export the office actually gets: the CSV is built from the data on
+      screen, copied to the clipboard AND opened in the share sheet, where
+      "Save to Files" (or email / WhatsApp) stores it. */
+  const onExport = async () => {
+    await presenter.runExport(state.openBatch);
+    const { fileName, csv } = presenter.buildCsv();
+    try {
+      await Clipboard.setStringAsync(csv);
+    } catch (_e) {
+      /* clipboard unavailable on this device — the share sheet still works */
+    }
+    try {
+      await Share.share({ title: fileName, message: `${fileName}\n\n${csv}` });
+    } catch (_e) {
+      /* the office dismissed the sheet — the clipboard copy remains */
+    }
+  };
   const report = state.report;
 
   return (
     <AdminScaffold
       eyebrow="Academics"
-      title="Reports"
-      subtitle="Class report batches — open one to see a learner's report card."
+      title={report ? `Report card — ${report.studentName}` : 'Reports'}
+      subtitle={
+        report
+          ? `${report.classLabel} · ${report.termLabel}`
+          : 'Class report batches — open one to see a learner\u2019s report card.'
+      }
+      onBack={report ? () => presenter.closeReport() : undefined}
     >
       {state.status === 'loading' ? <LoadingView label="Loading the catalogue…" /> : null}
       {state.status === 'error' ? (
@@ -89,9 +113,9 @@ export default function ReportsView({ navigation }) {
 
           <View style={styles.actionsWrap}>
             <PrimaryButton
-              label={state.working ? 'Exporting…' : 'Export this class as CSV'}
+              label={state.working ? 'Exporting…' : 'Export as CSV (clipboard + share sheet)'}
               disabled={state.working}
-              onPress={() => presenter.runExport(state.openBatch)}
+              onPress={onExport}
             />
             <View style={styles.secondaryWrap}>
               <SecondaryButton label="Back to the catalogue" onPress={() => presenter.closeReport()} />

@@ -4,6 +4,7 @@
  * after every fill; "Send for review" checks it is complete first.
  */
 import { ApiError } from '../api/ApiError';
+import { timeError, minutesOf } from '../api/validation.js';
 
 const BASE_TIMES = [
   '08:00 – 08:40', '08:45 – 09:25', '09:30 – 10:10',
@@ -88,8 +89,11 @@ export class TimetableBuilderPresenter {
       this._setState({
         status: 'content',
         draft,
-        // Every subject is offered; the class's own subjects sort first.
-        subjects: [...subjectsPage.items].sort((a, b) => (inClass(b) ? 1 : 0) - (inClass(a) ? 1 : 0)),
+        // Only the class's OWN subjects are offerable — Physics never lands
+        // on a JSS timetable because it is not on the picker at all.
+        subjects: subjectsPage.items
+          .filter((s) => s.classes.includes(label))
+          .sort((a, b) => (inClass(b) ? 1 : 0) - (inClass(a) ? 1 : 0)),
         teachers: teachersPage.items,
         errorText: null,
       });
@@ -141,20 +145,42 @@ export class TimetableBuilderPresenter {
     }
   }
 
-  /** Set or override one period's time label (any format the school uses). */
-  async setTime(day, period, time) {
+  /** Set one period's time — two 24-hour HH:MM values, end strictly after
+      start. Returns false (with errorText set) when the times are invalid. */
+  async setTime(day, period, start, end) {
     const draft = this.state.draft;
-    if (!draft || this.state.saving) return;
-    const slots = draft.slots.map((s) => (s.day === day && s.period === period ? { ...s, time } : s));
+    if (!draft || this.state.saving) return false;
+    const startProblem = timeError(start);
+    if (startProblem) {
+      this._setState({ errorText: `Period ${period} start — ${startProblem}` });
+      return false;
+    }
+    const endProblem = timeError(end);
+    if (endProblem) {
+      this._setState({ errorText: `Period ${period} end — ${endProblem}` });
+      return false;
+    }
+    if (minutesOf(end) <= minutesOf(start)) {
+      this._setState({
+        errorText: `Period ${period}: the end must be after the start — e.g. 08:00 – 08:40, never the same time twice.`,
+      });
+      return false;
+    }
+    const label = `${start} – ${end}`;
+    const slots = draft.slots.map((s) =>
+      s.day === day && s.period === period ? { ...s, time: label, start, end } : s,
+    );
     this._setState({ saving: true, errorText: null });
     try {
       const saved = await this.model.saveDraft(draft.id, { slots });
-      this._setState({ saving: false, draft: saved.draft, notice: `Period time set — ${time}.` });
+      this._setState({ saving: false, draft: saved.draft, notice: `Period time set — ${label}.` });
+      return true;
     } catch (error) {
       this._setState({
         saving: false,
-        errorText: error instanceof ApiError ? error.message : 'The time was not saved.',
+        errorText: error instanceof ApiError ? error.message : 'The time was not saved — check the times and try again.',
       });
+      return false;
     }
   }
 

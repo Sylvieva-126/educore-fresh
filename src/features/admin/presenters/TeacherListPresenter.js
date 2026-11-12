@@ -14,6 +14,8 @@ export class TeacherListPresenter {
       status: 'loading', // loading | content | error
       rows: [],
       query: { q: '', status: 'all' },
+      importing: false,
+      importResult: null, // { imported: [{row, teacher}], failed: [{row, name, error}] }
       notice: null,
       errorText: null,
     };
@@ -68,6 +70,66 @@ export class TeacherListPresenter {
       this._navigation.navigate('TeacherProfile', { teacherId: teacher.id });
     }
   }
+
+  /** Paste-CSV import: one teacher per line —
+      "Full name, Email, Phone, Subject|Subject, Form class".
+      Every row is validated by the same rules as the manual form; the server
+      answers per-row results so the office sees exactly what failed. */
+  async importCsv(text) {
+    const rows = parseTeacherCsv(text);
+    if (!rows.length) {
+      this._setState({
+        notice: null,
+        errorText:
+          'Paste at least one line, e.g. "Mr. Emeka Obi, emeka.obi@gmail.com, 0810 123 4567, Mathematics|Basic Science, JSS2 A".',
+      });
+      return false;
+    }
+    this._setState({ importing: true, notice: null, errorText: null, importResult: null });
+    try {
+      const result = await this.model.importRows(rows);
+      const imported = result.imported || [];
+      const failed = result.failed || [];
+      await this.load({ showLoading: false });
+      this._setState({
+        importing: false,
+        importResult: { imported, failed },
+        notice:
+          `Imported ${imported.length} teacher${imported.length === 1 ? '' : 's'}` +
+          (failed.length ? ` — ${failed.length} line${failed.length === 1 ? '' : 's'} need fixing (see below).` : '.'),
+      });
+      return true;
+    } catch (error) {
+      this._setState({
+        importing: false,
+        notice: null,
+        errorText: error instanceof ApiError ? error.message : 'The import did not run — check the lines and try again.',
+      });
+      return false;
+    }
+  }
+}
+
+/** "Name, email, phone, Maths|Biology, JSS2 A" → one row object per line.
+    Subjects are pipe-separated because names themselves carry commas. */
+export function parseTeacherCsv(text) {
+  return String(text || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split(',').map((p) => p.trim());
+      return {
+        fullName: parts[0] || '',
+        email: parts[1] || '',
+        phone: parts[2] || '',
+        subjects: (parts[3] || '')
+          .split('|')
+          .map((s) => s.trim())
+          .filter(Boolean),
+        formClass: parts[4] || '',
+      };
+    });
 }
 
 export default TeacherListPresenter;

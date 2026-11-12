@@ -161,7 +161,13 @@ export default function AssessmentRulesView({ navigation }) {
             disabled={state.saving}
             onPress={() => presenter.lock()}
           />
-        ) : null}
+        ) : (
+          <SecondaryButton
+            label={state.saving ? 'Working…' : 'Unlock to edit again'}
+            disabled={state.saving}
+            onPress={() => presenter.unlock()}
+          />
+        )}
       </View>
     </AdminScaffold>
   );

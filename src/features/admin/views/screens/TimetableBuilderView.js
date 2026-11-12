@@ -61,7 +61,17 @@ export default function TimetableBuilderView({ navigation, route }) {
     : 0;
 
   const openTimeEditor = (slot) => {
-    setTimeTarget({ day: slot.day, period: slot.period, value: slot.time || '' });
+    // Prefill from the structured times, else split the label "08:00 – 08:40".
+    let start = slot.start || '';
+    let end = slot.end || '';
+    if ((!start || !end) && slot.time) {
+      const parts = String(slot.time).split(/[–-]/).map((x) => x.trim());
+      if (parts.length === 2) {
+        start = start || parts[0];
+        end = end || parts[1];
+      }
+    }
+    setTimeTarget({ day: slot.day, period: slot.period, start, end });
   };
 
   const onSlotPress = (slot) => {
@@ -178,15 +188,17 @@ export default function TimetableBuilderView({ navigation, route }) {
     setAddDay(null);
   };
 
-  const onSaveTime = () => {
-    const value = ((timeTarget && timeTarget.value) || '').trim();
-    if (!value) {
-      setTimeTarget(null);
-      Alert.alert('Enter a time', 'Type the period time first — e.g. 08:00 – 08:40.');
-      return;
-    }
-    presenter.setTime(timeTarget.day, timeTarget.period, value);
-    setTimeTarget(null);
+  const onSaveTime = async () => {
+    if (!timeTarget) return;
+    const ok = await presenter.setTime(
+      timeTarget.day,
+      timeTarget.period,
+      (timeTarget.start || '').trim(),
+      (timeTarget.end || '').trim(),
+    );
+    // Stay open on a validation error so the office can correct the times;
+    // the exact problem pops up (24-hour clock, end after start…).
+    if (ok) setTimeTarget(null);
   };
 
   return (
@@ -357,19 +369,42 @@ export default function TimetableBuilderView({ navigation, route }) {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Period time</Text>
             <Text style={styles.modalHint}>
-              Any format the school uses — the default periods ship as 08:00 – 08:40 etc.
+              24-hour clock — start and end, e.g. 08:00 and 08:40. A period may
+              never start at or before the previous one ends.
             </Text>
-            <TextInput
-              style={styles.modalInput}
-              value={timeTarget ? timeTarget.value : ''}
-              onChangeText={(t) => setTimeTarget((prev) => ({ ...prev, value: t }))}
-              placeholder="e.g. 08:00 – 08:40"
-              placeholderTextColor={colors.muted}
-              autoFocus
-            />
+            <View style={styles.timeRow}>
+              <View style={styles.timeField}>
+                <Text style={styles.timeLabel}>Starts</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={timeTarget ? timeTarget.start : ''}
+                  onChangeText={(t) => setTimeTarget((prev) => ({ ...prev, start: t }))}
+                  placeholder="08:00"
+                  placeholderTextColor={colors.muted}
+                  keyboardType="numbers-pad"
+                  maxLength={5}
+                />
+              </View>
+              <View style={styles.timeField}>
+                <Text style={styles.timeLabel}>Ends</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={timeTarget ? timeTarget.end : ''}
+                  onChangeText={(t) => setTimeTarget((prev) => ({ ...prev, end: t }))}
+                  placeholder="08:40"
+                  placeholderTextColor={colors.muted}
+                  keyboardType="numbers-pad"
+                  maxLength={5}
+                />
+              </View>
+            </View>
             <View style={styles.modalActions}>
-              <SecondaryButton label="Cancel" onPress={() => setTimeTarget(null)} />
-              <PrimaryButton label="Save time" onPress={onSaveTime} />
+              <View style={styles.modalButton}>
+                <SecondaryButton label="Cancel" onPress={() => setTimeTarget(null)} />
+              </View>
+              <View style={styles.modalButton}>
+                <PrimaryButton label="Save time" disabled={state.saving} onPress={onSaveTime} />
+              </View>
             </View>
           </View>
         </View>
@@ -384,6 +419,11 @@ const styles = StyleSheet.create({
   section: { ...typography.sectionTitle, marginTop: spacing.md, marginBottom: spacing.sm },
   pickHint: { ...typography.label, color: colors.muted, marginBottom: spacing.sm },
   actions: { marginTop: spacing.md },
+  timeRow: { flexDirection: 'row', gap: spacing.sm },
+  timeField: { flex: 1 },
+  timeLabel: { ...typography.label, color: colors.muted, marginBottom: spacing.xs },
+  modalActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  modalButton: { flex: 1 },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',

@@ -25,7 +25,6 @@ export default function AdminSettingsView({ navigation }) {
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [sessionLabel, setSessionLabel] = useState('');
   const [termLabel, setTermLabel] = useState('');
   const [nextTermBegins, setNextTermBegins] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
@@ -36,6 +35,10 @@ export default function AdminSettingsView({ navigation }) {
   const [memberRole, setMemberRole] = useState(null); // { id } being re-roled
   const [roleEditSheet, setRoleEditSheet] = useState(false);
   const prefilled = useRef(false);
+  // The session is never typed: this year to next year, from the device date
+  // (2078 while it is 2078). It spans a full 12-month calendar cycle.
+  const now = new Date();
+  const sessionLabel = `${now.getFullYear()}-${now.getFullYear() + 1}`;
 
   useEffect(() => {
     presenter.attach(setState, navigation);
@@ -52,7 +55,6 @@ export default function AdminSettingsView({ navigation }) {
       setAddress(state.settings.address || '');
       setPhone(state.settings.phone || '');
       setEmail(state.settings.email || '');
-      setSessionLabel(state.settings.sessionLabel || '');
       setTermLabel(state.settings.termLabel || '');
       setNextTermBegins(state.settings.nextTermBegins || '');
     }
@@ -106,10 +108,8 @@ export default function AdminSettingsView({ navigation }) {
           <LabelledField label="Phone" value={phone} onChangeText={setPhone} />
           <LabelledField label="Email" value={email} onChangeText={setEmail} />
           <LabelledField
-            label="Session"
-            value={sessionLabel}
-            onChangeText={setSessionLabel}
-            placeholder="e.g. 2026-2027 — two consecutive years"
+            label="Session (automatic — this year to next year)"
+            displayValue={sessionLabel}
           />
           <LabelledField
             label="Current term"

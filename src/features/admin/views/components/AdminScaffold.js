@@ -17,16 +17,24 @@ export default function AdminScaffold({
   subtitle,
   actions = null,
   insetBottom = true, // false for screens inside the tab bar (it owns the bottom inset)
+  /** Screens with an in-page detail state (a draft, a report card…) pass
+      their "close the detail" action here, so Back first returns to the last
+      thing on this screen and only then leaves the screen. */
+  onBack,
   children,
 }) {
   const navigation = useNavigation();
   // Sub-pages show a back arrow; tab roots have nowhere to go back to.
-  const canGoBack = navigation.canGoBack();
+  const canGoBack = navigation.canGoBack() || Boolean(onBack);
 
   return (
     <SafeAreaView style={styles.safe} edges={insetBottom ? ['top', 'bottom'] : ['top']}>
       {canGoBack ? (
-        <Pressable style={styles.backRow} onPress={() => navigation.goBack()} hitSlop={12}>
+        <Pressable
+          style={styles.backRow}
+          onPress={() => (onBack ? onBack() : navigation.goBack())}
+          hitSlop={12}
+        >
           <Text style={styles.backText}>‹ Back</Text>
         </Pressable>
       ) : null}

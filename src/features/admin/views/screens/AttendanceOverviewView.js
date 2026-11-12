@@ -17,10 +17,18 @@ export default function AttendanceOverviewView({ navigation }) {
   const [state, setState] = useState(presenter.initialState);
 
   useEffect(() => {
-    presenter.attach(setState);
+    presenter.attach(setState, navigation);
     presenter.load();
-    return () => presenter.detach();
-  }, [presenter]);
+    // Registers get corrected elsewhere (AD17), so the totals re-read on
+    // every focus — the home screen and this list always agree.
+    const unsubscribe = navigation.addListener('focus', () => {
+      presenter.load({ showLoading: false });
+    });
+    return () => {
+      unsubscribe?.remove?.();
+      presenter.detach();
+    };
+  }, [presenter, navigation]);
 
   const o = state.overview || {};
 

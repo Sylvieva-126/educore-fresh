@@ -52,8 +52,13 @@ export default function PromotionPreviewView({ navigation }) {
   return (
     <AdminScaffold
       eyebrow="Records"
-      title="Preview promotion or completion"
-      subtitle="Who would move up, repeat, or graduate — before anything is final."
+      title={preview ? `Preview — ${preview.classLabel}` : 'Preview promotion or completion'}
+      subtitle={
+        preview
+          ? `${preview.classLabel} · ${preview.status} · promote ${preview.summary.promote} · repeat ${preview.summary.repeat} · graduate ${preview.summary.graduate}`
+          : 'Who would move up, repeat, or graduate — before anything is final.'
+      }
+      onBack={preview ? () => presenter.closePreview() : undefined}
     >
       {state.status === 'loading' ? <LoadingView label="Loading the previews…" /> : null}
       {state.status === 'error' ? (
@@ -121,17 +126,17 @@ export default function PromotionPreviewView({ navigation }) {
             }}
             emptyText="No students in this preview."
           />
-          {preview.status === 'Draft' ? (
-            <Text style={styles.hint}>
-              Tap a student to change their decision. "Mark to repeat" is destructive on purpose —
-              nobody moves twice.
-            </Text>
-          ) : (
+          {preview.status === 'Confirmed' ? (
             <Text style={styles.hint}>This preview is confirmed — decisions are frozen.</Text>
+          ) : (
+            <Text style={styles.hint}>
+              Tap a student to change their decision, then Save decisions. Students only move
+              up when this preview is confirmed in "Approve promotion and graduation".
+            </Text>
           )}
 
           <View style={styles.actionsWrap}>
-            {preview.status === 'Draft' ? (
+            {preview.status !== 'Confirmed' ? (
               <PrimaryButton
                 label={state.saving ? 'Saving…' : 'Save decisions'}
                 disabled={state.saving}

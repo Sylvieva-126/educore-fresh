@@ -7,9 +7,11 @@
  * needs a matching front-end check to give the office a friendly inline
  * error instead of a failed save. The backend re-checks everything.
  *
- * Phone rules match Nigerian usage: +234 803 111 2233, 08031112233,
- * or 234 803 111 2233 — but any 7–15 digit number is accepted.
+ * Phone rules are THE Nigerian rules (api/validation.js — one opinion for
+ * forms, CSV imports and the demo server): 11 digits starting 0, or
+ * +234 followed by 10 digits.
  */
+import { phoneError as sharedPhoneError } from '../api/validation.js';
 
 /** Collapse runs of spaces and trim — the shape every stored text takes. */
 export function cleanText(value) {
@@ -26,12 +28,8 @@ export function normalizePhone(value) {
 
 export function isValidPhone(value) {
   const phone = normalizePhone(value);
-  if (!/^\+?\d+$/.test(phone)) return false;
-  const digits = phone.replace(/\+/g, '');
-  if (digits.length < 7 || digits.length > 15) return false; // E.164 window
-  if (digits.startsWith('234')) return digits.length === 13; // +234 + 10 digits
-  if (digits.startsWith('0')) return digits.length === 11; // local 11 digits
-  return true; // other country codes accepted as typed
+  if (!phone) return false;
+  return !sharedPhoneError(phone);
 }
 
 /** Trim + lowercase — emails are stored lowercase everywhere. */

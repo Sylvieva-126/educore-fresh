@@ -31,15 +31,12 @@ export const API_CONFIG = {
   demo: !REAL_API_URL,
 };
 
-/** Normalised API failure so presenters can show one consistent error shape. */
-export class ApiError extends Error {
-  constructor(status, message, details) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.details = details || null;
-  }
-}
+/** Normalised API failure so presenters can show one consistent error shape.
+    MUST stay the SAME class the presenters import — the v15 refactor created
+    a second ApiError class here, and `error instanceof ApiError` then failed
+    for every server error, replacing all detailed messages with generic ones. */
+import { ApiError } from './ApiError';
+export { ApiError };
 
 function buildUrl(path, query) {
   const base = API_CONFIG.baseUrl.replace(/\/+$/, '');

@@ -26,6 +26,8 @@
  * call goes to the network again.
  */
 
+import { emailError, phoneError, timeError, minutesOf } from './validation.js';
+
 const SCHOOL_NAME = 'Greenfield Secondary School';
 const SESSION_LABEL = '2026/2027';
 
@@ -365,6 +367,10 @@ const PERIOD_TIMES = [
   '08:00 – 08:40', '08:45 – 09:25', '09:30 – 10:10',
   '10:40 – 11:20', '11:25 – 12:05', '12:10 – 12:50',
 ];
+const PERIOD_START_END = PERIOD_TIMES.map((t) => {
+  const [start, end] = t.split('–').map((x) => x.trim());
+  return { start, end };
+});
 
 function makeSlots(classLabel, filledDays) {
   const subjects = SUBJECTS.filter((s) => s.classes.includes(classLabel)).map((s) => s.name);
@@ -380,7 +386,13 @@ function makeSlots(classLabel, filledDays) {
   const slots = [];
   DAYS.forEach((day, d) => {
     PERIOD_TIMES.forEach((time, p) => {
-      const base = { day, period: p + 1, time };
+      const base = {
+        day,
+        period: p + 1,
+        time,
+        start: PERIOD_START_END[p].start,
+        end: PERIOD_START_END[p].end,
+      };
       if (d < filledDays && subjects.length > 0) {
         const subject = subjects[(d * PERIOD_TIMES.length + p + offset) % subjects.length];
         slots.push({ ...base, subject, teacherName: teacherFor(subject), activity: null });
@@ -392,26 +404,98 @@ function makeSlots(classLabel, filledDays) {
   return slots;
 }
 
+/** A slot's time as { start, end } — structured fields when present, else
+    parsed from the display label ("08:00 – 08:40", en dash or hyphen). */
+function slotStartEnd(slot) {
+  if (slot && slot.start && slot.end) return { start: slot.start, end: slot.end };
+  const m = /^(.+?)\s*[–-]\s*(.+)$/.exec((slot && slot.time) || '');
+  return m ? { start: m[1].trim(), end: m[2].trim() } : null;
+}
+
+function slotLabel(slot) {
+  const se = slotStartEnd(slot);
+  return se ? `${se.start} – ${se.end}` : slot.time || 'no time set';
+}
+
+function slotTimeError(slot) {
+  const se = slotStartEnd(slot);
+  if (!se) return null; // untouched periods keep their seeded labels
+  const badStart = timeError(se.start);
+  if (badStart) return `the start time is wrong — ${badStart}`;
+  const badEnd = timeError(se.end);
+  if (badEnd) return `the end time is wrong — ${badEnd}`;
+  if (minutesOf(se.end) <= minutesOf(se.start)) {
+    return 'the end must be after the start — e.g. 08:00 – 08:40, never the same time twice.';
+  }
+  return null;
+}
+
+/** Period times must run forward through the day: a later period may not
+    start earlier than (or at the same minute as) the previous period's end. */
+function slotOrderError(slots) {
+  const days = [...new Set(slots.map((s) => s.day))];
+  for (const day of days) {
+    const list = slots.filter((s) => s.day === day).sort((a, b) => a.period - b.period);
+    for (let i = 1; i < list.length; i++) {
+      const prev = slotStartEnd(list[i - 1]);
+      const cur = slotStartEnd(list[i]);
+      if (!prev || !cur) continue;
+      if (minutesOf(cur.start) < minutesOf(prev.end)) {
+        return (
+          `${day}: period ${list[i].period} (${cur.start}) starts before period ` +
+          `${list[i - 1].period} ends (${prev.end}) — period times must run in order, ` +
+          'never the same or backwards.'
+        );
+      }
+    }
+  }
+  return null;
+}
+
 const TIMETABLE_DRAFTS = [
   { id: 'ttd-1', classLabel: 'JSS1 A', term: '2026/2027 · First Term', status: 'Ready to review', slots: makeSlots('JSS1 A', 5) },
   { id: 'ttd-2', classLabel: 'JSS1 B', term: '2026/2027 · First Term', status: 'Draft', slots: makeSlots('JSS1 B', 3) },
 ];
 
-/** Shared rules for validating a draft: completeness first, then clashes. */
+/** Shared rules for validating a draft: completeness, subject-class fit,
+    time order, then clashes (same period or overlapping times). */
 function timetableProblems(draft, allDrafts) {
   const empty = draft.slots.filter((s) => !s.subject && !s.activity).length;
   if (empty > 0) {
     return `${empty} period${empty === 1 ? ' is' : 's are'} still empty — fill them first.`;
   }
+  for (const s of draft.slots) {
+    if (
+      s.subject &&
+      !SUBJECTS.some((sub) => sub.name === s.subject && sub.classes.includes(draft.classLabel))
+    ) {
+      return (
+        `${s.day}, period ${s.period}: ${s.subject} is not offered in ${draft.classLabel} — ` +
+        'replace it with one of the class\u2019s own subjects.'
+      );
+    }
+  }
+  const order = slotOrderError(draft.slots);
+  if (order) return order;
   const others = allDrafts.filter((d) => d.id !== draft.id && d.status !== 'Draft');
   for (const s of draft.slots) {
     if (!s.teacherName) continue; // activities have no teacher, no clashes
+    const sSe = slotStartEnd(s);
     for (const o of others) {
-      const twin = o.slots.find(
-        (t) => t.day === s.day && t.period === s.period && t.teacherName === s.teacherName,
-      );
+      const twin = o.slots.find((t) => {
+        if (t.day !== s.day || t.teacherName !== s.teacherName) return false;
+        if (t.period === s.period) return true;
+        const tSe = slotStartEnd(t);
+        if (!sSe || !tSe) return false;
+        return (
+          minutesOf(tSe.start) < minutesOf(sSe.end) && minutesOf(sSe.start) < minutesOf(tSe.end)
+        );
+      });
       if (twin) {
-        return `Timetable clash: ${s.teacherName} is timetabled for ${o.classLabel} at the same time (${s.day}, period ${s.period}).`;
+        return (
+          `Timetable clash: ${s.teacherName} teaches ${o.classLabel} at overlapping times ` +
+          `on ${s.day} (${slotLabel(s)} here, ${slotLabel(twin)} in ${o.classLabel}).`
+        );
       }
     }
   }
@@ -828,6 +912,25 @@ const PROMOTION_PREVIEWS = [
 ].map((p) => ({ ...p, summary: summariseRows(p.rows) }));
 let nextPreviewId = 3;
 
+/* ── AD34 — school change history (who did what, when) ───────────────── */
+
+const AUDIT_LOG = [
+  { id: 'aud-1', at: '2026-11-12', actor: 'Admin (you)', category: 'Records', action: 'Corrected a register', detail: 'JSS1 A · morning — Amara Eze marked present' },
+  { id: 'aud-2', at: '2026-11-11', actor: 'Mrs. Ifeoma Eze', category: 'Academics', action: 'Sent results for review', detail: 'SSS1 A · Biology · first term' },
+  { id: 'aud-3', at: '2026-11-11', actor: 'Admin (you)', category: 'Finance', action: 'Issued fee bills', detail: 'JSS1 A · 34 bills · ₦85,000 each' },
+  { id: 'aud-4', at: '2026-11-10', actor: 'Admin (you)', category: 'Staff', action: 'Registered a teacher', detail: 'Mr. Chidi Nwachukwu · Mathematics' },
+  { id: 'aud-5', at: '2026-11-10', actor: 'Admin (you)', category: 'Academics', action: 'Published a timetable', detail: 'JSS1 A · first term week' },
+  { id: 'aud-6', at: '2026-11-09', actor: 'Mr. Danladi Yusuf', category: 'Academics', action: 'Submitted marks', detail: 'JSS2 A · Mathematics · CA 2' },
+  { id: 'aud-7', at: '2026-11-09', actor: 'Admin (you)', category: 'Records', action: 'Enrolled a student', detail: 'Kelechi Nwosu · JSS1 B' },
+  { id: 'aud-8', at: '2026-11-08', actor: 'Admin (you)', category: 'Staff', action: 'Changed a teacher\'s subjects', detail: 'Mrs. Ifeoma Eze · + Government' },
+  { id: 'aud-9', at: '2026-11-07', actor: 'Admin (you)', category: 'Finance', action: 'Recorded a payment', detail: 'INV-1042 · ₦85,000 · Paystack' },
+  { id: 'aud-10', at: '2026-11-06', actor: 'Admin (you)', category: 'Academics', action: 'Locked the grading rules', detail: 'Pass mark 40 · CA 30 / exam 70' },
+  { id: 'aud-11', at: '2026-11-05', actor: 'Admin (you)', category: 'Records', action: 'Published report batches', detail: 'JSS1 A · first term' },
+  { id: 'aud-12', at: '2026-11-04', actor: 'Mrs. Bisi Adeoye', category: 'Staff', action: 'Signed in', detail: 'Admin app · Android' },
+  { id: 'aud-13', at: '2026-11-03', actor: 'Admin (you)', category: 'Records', action: 'Promoted a transfer student', detail: 'From JSS2 B to JSS2 A' },
+  { id: 'aud-14', at: '2026-11-02', actor: 'Admin (you)', category: 'Finance', action: 'Updated a fee plan', detail: 'SSS3 · boarding added · ₦40,000' },
+];
+
 /* Subject rules shared by create and edit: Core spans both levels; JSS is
    junior-only; the named departments are SSS-only. Teachers are assigned per
    subject and mirrored into the staff records the timetable checks. */
@@ -887,6 +990,24 @@ function nextStaffNumber() {
     if (m) max = Math.max(max, Number(m[1]));
   });
   return `GST/${String(max + 1).padStart(3, '0')}`;
+}
+
+/** One validation opinion for a teacher row — used by the create form, the
+    CSV import and the PATCH guard, so manual entry and imports always obey
+    the same rules. Returns an error string or null. */
+function validateTeacherRow(b) {
+  if (!cleanText(b.fullName)) return "Enter the teacher's full name.";
+  const email = emailError(b.email);
+  if (email) return email;
+  const phone = phoneError(b.phone);
+  if (phone) return phone;
+  const subjects = Array.isArray(b.subjects) ? b.subjects.filter(Boolean) : [];
+  const unknown = subjects.find((s) => !SUBJECTS.some((sub) => sub.name === s));
+  if (unknown) return `${unknown} is not in the subject list.`;
+  if (b.formClass && !CLASS_NAMES.includes(b.formClass)) {
+    return `${b.formClass} is not one of this school's classes.`;
+  }
+  return null;
 }
 
 // AD10 — the school profile the office edits, and the admin memberships
@@ -1147,19 +1268,10 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   // endpoint so the subject records stay in sync.
   if (seg[0] === 'teachers' && seg.length === 1 && m === 'POST') {
     const b = body || {};
+    const rowProblem = validateTeacherRow(b);
+    if (rowProblem) return { ok: false, error: rowProblem };
     const fullName = cleanText(b.fullName);
-    if (!fullName) return { ok: false, error: 'Enter the teacher\'s full name.' };
-    if (b.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(b.email).trim())) {
-      return { ok: false, error: 'That email address does not look right — e.g. name@greenfield.edu.ng.' };
-    }
-    if (b.phone && !/^\+?[0-9][0-9\s\-()]{6,18}$/.test(String(b.phone).trim())) {
-      return { ok: false, error: 'That phone number does not look right — use digits with an optional +234, e.g. +234 810 444 5050.' };
-    }
     const subjects = Array.isArray(b.subjects) ? b.subjects.filter(Boolean) : [];
-    const unknownSubject = subjects.find((s) => !SUBJECTS.some((sub) => sub.name === s));
-    if (unknownSubject) {
-      return { ok: false, error: `${unknownSubject} is not in the subject list.` };
-    }
     const formClass = b.formClass && CLASS_NAMES.includes(b.formClass) ? b.formClass : null;
     const teacher = {
       id: `tch-${Date.now()}`,
@@ -1176,6 +1288,61 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     syncTeacherSubjects(teacher, subjects);
     return { ok: true, teacher, provisioning: { status: 'Queued', detail: 'We are creating the staff account — tap Retry if it stays queued.' } };
   }
+  // AD08 — the staff number the next new teacher will get (shown read-only
+  // in the form; the server assigns the same one on create).
+  if (seg[0] === 'teachers' && seg[1] === 'next-staff-number' && m === 'GET') {
+    return { ok: true, next: nextStaffNumber() };
+  }
+  // AD08 — CSV import. Every row runs through the SAME validateTeacherRow the
+  // manual form uses; per-row results come back so the office sees exactly
+  // which line failed and why.
+  if (seg[0] === 'teachers' && seg[1] === 'import' && m === 'POST') {
+    const rows = Array.isArray(body && body.rows) ? body.rows : [];
+    if (!rows.length) {
+      return {
+        ok: false,
+        error: 'No rows to import — paste one teacher per line: Full name, Email, Phone, Subjects (| separated), Form class.',
+      };
+    }
+    const imported = [];
+    const failed = [];
+    rows.forEach((row, i) => {
+      const problem = validateTeacherRow(row);
+      if (problem) {
+        failed.push({ row: i + 1, name: cleanText(row.fullName) || `(line ${i + 1})`, error: problem });
+        return;
+      }
+      const teacher = {
+        id: `tch-${Date.now()}-${i}`,
+        fullName: cleanText(row.fullName),
+        staffNumber: nextStaffNumber(),
+        phone: cleanText(row.phone),
+        email: cleanText(row.email),
+        subjects: (row.subjects || []).filter(Boolean),
+        formClass: row.formClass && CLASS_NAMES.includes(row.formClass) ? row.formClass : null,
+        status: 'Active',
+      };
+      TEACHERS.push(teacher);
+      syncTeacherSubjects(teacher, teacher.subjects);
+      AUDIT_LOG.unshift({
+        id: `aud-${Date.now()}-${i}`,
+        at: todayLabel(),
+        actor: 'Admin (you)',
+        category: 'Staff',
+        action: 'Registered a teacher (CSV import)',
+        detail: `${teacher.fullName} · ${teacher.staffNumber}`,
+      });
+      imported.push({ row: i + 1, teacher });
+    });
+    if (!imported.length) {
+      return {
+        ok: false,
+        error: `No row could be imported. First problem: ${failed[0].error}`,
+        failed,
+      };
+    }
+    return { ok: true, imported, failed };
+  }
   if (seg[0] === 'teachers' && seg.length === 2) {
     const teacher = TEACHERS.find((t) => t.id === seg[1]);
     if (!teacher) return { ok: false, error: 'Teacher not found.' };
@@ -1185,12 +1352,10 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       if (b.fullName !== undefined && !cleanText(b.fullName)) {
         return { ok: false, error: 'Enter the teacher\'s full name.' };
       }
-      if (b.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(b.email).trim())) {
-        return { ok: false, error: 'That email address does not look right — e.g. name@greenfield.edu.ng.' };
-      }
-      if (b.phone && !/^\+?[0-9][0-9\s\-()]{6,18}$/.test(String(b.phone).trim())) {
-        return { ok: false, error: 'That phone number does not look right — use digits with an optional +234, e.g. +234 810 444 5050.' };
-      }
+      const emailProblem = emailError(b.email);
+      if (emailProblem) return { ok: false, error: emailProblem };
+      const phoneProblem = phoneError(b.phone);
+      if (phoneProblem) return { ok: false, error: phoneProblem };
       if (b.fullName !== undefined) teacher.fullName = cleanText(b.fullName);
       if (b.staffNumber !== undefined) teacher.staffNumber = cleanText(b.staffNumber);
       if (b.phone !== undefined) teacher.phone = cleanText(b.phone);
@@ -1271,12 +1436,10 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     if (b.termLabel !== undefined && !['First Term', 'Second Term', 'Third Term'].includes(b.termLabel)) {
       return { ok: false, error: 'Pick First, Second or Third Term.' };
     }
-    if (b.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(b.email).trim())) {
-      return { ok: false, error: 'That email address does not look right — e.g. office@greenfield.edu.ng.' };
-    }
-    if (b.phone && !/^\+?[0-9][0-9\s\-()]{6,18}$/.test(String(b.phone).trim())) {
-      return { ok: false, error: 'That phone number does not look right — use digits with an optional +234, e.g. +234 810 000 1010.' };
-    }
+    const settingsEmailProblem = emailError(b.email);
+    if (settingsEmailProblem) return { ok: false, error: settingsEmailProblem };
+    const settingsPhoneProblem = phoneError(b.phone);
+    if (settingsPhoneProblem) return { ok: false, error: settingsPhoneProblem };
     if (b.nextTermBegins && !/^\d{4}-\d{2}-\d{2}$/.test(String(b.nextTermBegins).trim())) {
       return { ok: false, error: 'Next term begins must be a date like 2027-01-11.' };
     }
@@ -1390,6 +1553,14 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
                 error: `${s.teacherName} does not teach ${s.subject} — pick the subject's assigned teacher.`,
               };
             }
+            // A subject only enters the classes that offer it — Physics never
+            // lands on a JSS timetable by accident.
+            if (!SUBJECTS.some((sub) => sub.name === s.subject && sub.classes.includes(draft.classLabel))) {
+              return {
+                ok: false,
+                error: `${s.day}, period ${s.period}: ${s.subject} is not offered in ${draft.classLabel} — pick one of the class's own subjects.`,
+              };
+            }
           }
           if (s.activity && s.teacherName) {
             return {
@@ -1397,7 +1568,13 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
               error: `${s.activity} needs no teacher — leave the teacher empty.`,
             };
           }
+          const timeProblem = slotTimeError(s);
+          if (timeProblem) {
+            return { ok: false, error: `${s.day}, period ${s.period}: ${timeProblem}` };
+          }
         }
+        const orderProblem = slotOrderError(body.slots);
+        if (orderProblem) return { ok: false, error: orderProblem };
         draft.slots = body.slots;
       }
       return { ok: true, draft };
@@ -1555,6 +1732,31 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     seg[0] === 'assessment-policies' && seg.length === 3 && seg[2] === 'lock' && m === 'POST'
   ) {
     ASSESSMENT_POLICY.locked = true;
+    AUDIT_LOG.unshift({
+      id: `aud-${Date.now()}`,
+      at: todayLabel(),
+      actor: 'Admin (you)',
+      category: 'Academics',
+      action: 'Locked the grading rules',
+      detail: `Pass mark ${ASSESSMENT_POLICY.passMark} · CA ${ASSESSMENT_POLICY.caWeight} / exam ${ASSESSMENT_POLICY.examWeight}`,
+    });
+    return { ok: true, policy: ASSESSMENT_POLICY };
+  }
+  if (
+    seg[0] === 'assessment-policies' && seg.length === 3 && seg[2] === 'unlock' && m === 'POST'
+  ) {
+    if (!ASSESSMENT_POLICY.locked) {
+      return { ok: false, error: 'The grading rules are not locked.' };
+    }
+    ASSESSMENT_POLICY.locked = false;
+    AUDIT_LOG.unshift({
+      id: `aud-${Date.now()}`,
+      at: todayLabel(),
+      actor: 'Admin (you)',
+      category: 'Academics',
+      action: 'Unlocked the grading rules',
+      detail: 'They can be edited again until the next lock.',
+    });
     return { ok: true, policy: ASSESSMENT_POLICY };
   }
 
@@ -1695,6 +1897,15 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     return { ok: true };
   }
 
+  // AD34 — school change history; newest first, filterable by category.
+  if (seg[0] === 'audit-trail' && seg.length === 1 && m === 'GET') {
+    let list = AUDIT_LOG;
+    if (query.category && query.category !== 'All') {
+      list = list.filter((e) => e.category === query.category);
+    }
+    return paginate(list, query.page);
+  }
+
   // AD20 — reports catalogue (the class batches) and one learner's report
   // card. Published/ready batches carry a sample report id; drafts have none.
   if (seg[0] === 'reports' && seg[1] === 'catalogue' && m === 'GET') {
@@ -1723,10 +1934,11 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
         return { ok: false, error: 'Pick a class from the list.' };
       }
       if (PROMOTION_PREVIEWS.some((p) => p.classLabel === classLabel && p.status !== 'Confirmed')) {
-        return {
-          ok: false,
-          error: `${classLabel} already has a promotion preview — open it and finish the decisions.`,
-        };
+        // Not an error — the office taps "compute" twice; open what exists.
+        const existing = PROMOTION_PREVIEWS.find(
+          (p) => p.classLabel === classLabel && p.status !== 'Confirmed',
+        );
+        return { ok: true, preview: existing, existing: true };
       }
       const graduating = classLabel.startsWith('SSS3');
       const rows = makePromotionRows(classLabel, graduating);
@@ -1751,7 +1963,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   if (seg[0] === 'promotion-previews' && seg.length === 3 && seg[2] === 'decisions' && m === 'PUT') {
     const preview = PROMOTION_PREVIEWS.find((p) => p.id === seg[1]);
     if (!preview) return { ok: false, error: 'Promotion preview not found.' };
-    if (preview.status !== 'Draft') {
+    if (preview.status === 'Confirmed') {
       return { ok: false, error: 'This preview is confirmed — its decisions are frozen.' };
     }
     const decisions = Array.isArray(body && body.decisions) ? body.decisions : [];
@@ -1762,6 +1974,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       }
     });
     preview.summary = summariseRows(preview.rows);
+    preview.status = 'Decisions Saved';
     return { ok: true, preview };
   }
   if (seg[0] === 'promotion-previews' && seg.length === 3 && seg[2] === 'validate' && m === 'POST') {
@@ -1781,6 +1994,14 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       return { ok: false, error: `${undecided.length} student(s) still need a decision before confirming.` };
     }
     preview.status = 'Confirmed';
+    AUDIT_LOG.unshift({
+      id: `aud-${Date.now()}`,
+      at: todayLabel(),
+      actor: 'Admin (you)',
+      category: 'Records',
+      action: 'Confirmed a promotion preview',
+      detail: `${preview.classLabel}: promote ${preview.summary.promote} · repeat ${preview.summary.repeat} · graduate ${preview.summary.graduate}`,
+    });
     return { ok: true, preview };
   }
 

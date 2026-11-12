@@ -29,6 +29,8 @@ import AttendanceOverviewView from './AttendanceOverviewView';
 import ResultsReviewView from './ResultsReviewView';
 import ReportsView from './ReportsView';
 import PromotionPreviewView from './PromotionPreviewView';
+import PromotionApproveView from './PromotionApproveView';
+import AuditTrailView from './AuditTrailView';
 import PaymentsBoardView from './PaymentsBoardView';
 import PaymentDetailView from './PaymentDetailView';
 import MessageInboxView from './MessageInboxView';
@@ -174,7 +176,12 @@ export const ADMIN_SCREENS = {
     Component: PromotionPreviewView,
     tab: 'More',
   },
-  AD27: { name: 'PromotionApprove', title: 'Approve promotion and graduation', tab: 'More' },
+  AD27: {
+    name: 'PromotionApprove',
+    title: 'Approve promotion and graduation',
+    Component: PromotionApproveView,
+    tab: 'More',
+  },
   AD28: { name: 'Notices', title: 'School announcements', Component: NoticesView, tab: 'More' },
   AD29: {
     name: 'MessageInbox',
@@ -206,7 +213,12 @@ export const ADMIN_SCREENS = {
     Component: ImportsExportsView,
     tab: 'More',
   },
-  AD34: { name: 'AuditTrail', title: 'School change history', tab: 'More' },
+  AD34: {
+    name: 'AuditTrail',
+    title: 'School change history',
+    Component: AuditTrailView,
+    tab: 'More',
+  },
 };
 
 /**

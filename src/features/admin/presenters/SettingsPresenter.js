@@ -4,6 +4,7 @@
  * membership edits go through their own endpoints.
  */
 import { ApiError } from '../api/ApiError';
+import { emailError, phoneError } from '../api/validation.js';
 // The settings model is injected by the view (constructor) — no static model
 // import here, so this presenter stays importable in node tests.
 
@@ -87,19 +88,19 @@ export class SettingsPresenter {
       this._setState({ notice: null, errorText: 'Pick First, Second or Third Term.' });
       return false;
     }
-    if (fields.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.trim())) {
-      this._setState({
-        notice: null,
-        errorText: 'That email address does not look right — e.g. office@greenfield.edu.ng.',
-      });
-      return false;
+    if (fields.email) {
+      const emailProblem = emailError(fields.email);
+      if (emailProblem) {
+        this._setState({ notice: null, errorText: emailProblem });
+        return false;
+      }
     }
-    if (fields.phone && !/^\+?[0-9][0-9\s\-()]{6,18}$/.test(fields.phone.trim())) {
-      this._setState({
-        notice: null,
-        errorText: 'That phone number does not look right — use digits with an optional +234, e.g. +234 810 000 1010.',
-      });
-      return false;
+    if (fields.phone) {
+      const phoneProblem = phoneError(fields.phone);
+      if (phoneProblem) {
+        this._setState({ notice: null, errorText: phoneProblem });
+        return false;
+      }
     }
     if (fields.nextTermBegins && !/^\d{4}-\d{2}-\d{2}$/.test(fields.nextTermBegins.trim())) {
       this._setState({
@@ -133,8 +134,14 @@ export class SettingsPresenter {
       this._setState({ notice: null, errorText: "Enter the admin's full name." });
       return false;
     }
-    if (!fields.email || !fields.email.includes('@')) {
-      this._setState({ notice: null, errorText: 'Enter a valid email address.' });
+    const inviteEmail = emailError(fields.email) || (!fields.email ? 'Enter the email the invitation goes to.' : null);
+    if (inviteEmail) {
+      this._setState({ notice: null, errorText: inviteEmail });
+      return false;
+    }
+    const adminPhone = phoneError(fields.phone);
+    if (adminPhone) {
+      this._setState({ notice: null, errorText: adminPhone });
       return false;
     }
     this._setState({ saving: true, notice: null, errorText: null });

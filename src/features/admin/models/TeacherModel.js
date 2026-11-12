@@ -24,6 +24,17 @@ export const TeacherModel = {
     return api.post(endpoints.teachers.create, null, body);
   },
 
+  /** The staff number the NEXT new teacher will get (read-only preview). */
+  async nextStaffNumber() {
+    return api.get(endpoints.teachers.nextStaffNumber);
+  },
+
+  /** Bulk CSV import — the server validates every row with the same rules
+      as the manual form and answers per-row results. */
+  async importRows(rows) {
+    return api.post(endpoints.teachers.importCsv, null, { rows });
+  },
+
   async byId(teacherId) {
     return api.get(endpoints.teachers.byId, { teacherId });
   },

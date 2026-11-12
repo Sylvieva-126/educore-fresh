@@ -71,6 +71,7 @@ export default function TimetablePublishView({ navigation }) {
           ? `${draft.classLabel} · ${draft.status} · ${filledCount}/${draft.slots.length} periods`
           : 'Tap a draft to review it, then publish.'
       }
+      onBack={draft ? () => presenter.backToList() : undefined}
     >
       {state.status === 'loading' ? <LoadingView label="Loading the drafts…" /> : null}
       {state.status === 'error' ? (

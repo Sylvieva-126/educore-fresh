@@ -34,8 +34,9 @@ export class AttendanceOverviewPresenter {
     this._render(this.state);
   }
 
-  async load() {
-    this._setState({ status: 'loading', errorText: null });
+  async load({ showLoading } = {}) {
+    // Quiet refreshes (on focus) keep what is on screen and update in place.
+    if (showLoading !== false) this._setState({ status: 'loading', errorText: null });
     try {
       // The register list spans two pages (21 rows against a page size of 20).
       const [overview, page1, page2] = await Promise.all([

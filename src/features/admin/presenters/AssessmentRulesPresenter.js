@@ -88,13 +88,34 @@ export class AssessmentRulesPresenter {
       this._setState({
         saving: false,
         policy: result.policy,
-        notice: 'Policy locked — marks entry can start. Unlock needs the bursar.',
+        notice: 'Grading rules locked — nothing can change while marks are being entered.',
       });
     } catch (error) {
       this._setState({
         saving: false,
         notice: null,
-        errorText: error instanceof ApiError ? error.message : 'The policy was not locked.',
+        errorText: error instanceof ApiError ? error.message : 'The rules were not locked.',
+      });
+    }
+  }
+
+  /** The admin can unlock again — the change lands in the audit trail. */
+  async unlock() {
+    const policy = this.state.policy;
+    if (!policy || this.state.saving) return;
+    this._setState({ saving: true, notice: null, errorText: null });
+    try {
+      const result = await this.model.unlockPolicy(policy.id);
+      this._setState({
+        saving: false,
+        policy: result.policy,
+        notice: 'Grading rules unlocked — edit them, then lock again before marks entry.',
+      });
+    } catch (error) {
+      this._setState({
+        saving: false,
+        notice: null,
+        errorText: error instanceof ApiError ? error.message : 'The rules were not unlocked.',
       });
     }
   }

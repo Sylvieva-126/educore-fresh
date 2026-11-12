@@ -93,24 +93,34 @@ export default function TeacherFormView({ navigation, route }) {
             placeholder="e.g. Mr. Chidi Nwachukwu"
             value={fullName}
             onChangeText={setFullName}
+            autoCapitalize="words"
+            textContentType="name"
+            autoComplete="name"
           />
-          {state.mode === 'edit' ? (
-            <LabelledField
-              label="Staff number (assigned automatically)"
-              displayValue={staffNumber || '—'}
-            />
-          ) : null}
+          <LabelledField
+            label="Staff number (automatic — the office never types this)"
+            displayValue={
+              state.mode === 'edit' ? staffNumber || '—' : state.staffNumberPreview || '…'
+            }
+          />
           <LabelledField
             label="Phone"
-            placeholder="e.g. +234 810 444 5050"
+            placeholder="e.g. 0810 123 4567 or +234 810 123 4567"
             value={phone}
             onChangeText={setPhone}
+            keyboardType="phone-pad"
+            textContentType="telephoneNumber"
+            autoComplete="tel"
           />
           <LabelledField
             label="Email"
-            placeholder="e.g. chidi.nwachukwu@greenfield.edu.ng"
+            placeholder="e.g. chidi.nwachukwu@gmail.com — any domain works"
             value={email}
             onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            textContentType="emailAddress"
+            autoComplete="email"
           />
           <LabelledField
             label="Subjects taught"

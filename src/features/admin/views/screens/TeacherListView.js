@@ -7,6 +7,7 @@ import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import { LoadingView, ErrorState } from '../components/FeedbackViews';
+import { PrimaryButton } from './AdminHomeView';
 import { TeacherListPresenter } from '../../presenters/TeacherListPresenter';
 import { TeacherModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
@@ -16,6 +17,7 @@ const STATUSES = ['all', 'Active', 'On Leave'];
 export default function TeacherListView({ navigation }) {
   const [presenter] = useState(() => new TeacherListPresenter(TeacherModel));
   const [state, setState] = useState(presenter.initialState);
+  const [csvText, setCsvText] = useState('');
   const loadedOnce = useRef(false);
 
   useEffect(() => {
@@ -81,6 +83,42 @@ export default function TeacherListView({ navigation }) {
             onPressItem={(row) => presenter.onOpenTeacher(row.raw)}
             emptyText="No teachers match — try clearing the search or filter."
           />
+
+          <Text style={styles.section}>Import teachers from CSV</Text>
+          <Text style={styles.hint}>
+            One teacher per line: Full name, Email, Phone, Subjects (| separated), Form class.
+            Every line is checked with the same rules as the form.
+          </Text>
+          <TextInput
+            style={[styles.search, styles.csvBox]}
+            placeholder={'Mr. Emeka Obi, emeka.obi@gmail.com, 0810 123 4567, Mathematics|Basic Science, JSS2 A'}
+            placeholderTextColor={colors.muted}
+            value={csvText}
+            onChangeText={setCsvText}
+            multiline
+            autoCapitalize="none"
+          />
+          <View style={styles.importWrap}>
+            <PrimaryButton
+              label={state.importing ? 'Importing…' : 'Import these lines'}
+              disabled={state.importing || !csvText.trim()}
+              onPress={async () => {
+                const ok = await presenter.importCsv(csvText);
+                if (ok) setCsvText('');
+              }}
+            />
+          </View>
+          {state.importResult && state.importResult.failed.length ? (
+            <RecordList
+              items={state.importResult.failed.map((f) => ({
+                id: `fail-${f.row}`,
+                title: `Line ${f.row}: ${f.name}`,
+                meta: f.error,
+                status: 'Fix',
+              }))}
+              emptyText=""
+            />
+          ) : null}
         </View>
       ) : null}
     </AdminScaffold>
@@ -100,6 +138,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   chipRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  section: { ...typography.sectionTitle, marginTop: spacing.lg, marginBottom: spacing.sm },
+  hint: { ...typography.label, color: colors.muted, marginBottom: spacing.sm },
+  csvBox: { minHeight: 96, textAlignVertical: 'top' },
+  importWrap: { marginTop: spacing.md },
   chip: {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,

@@ -56,7 +56,12 @@ export const endpoints = {
     retryProvisioning: 'teachers/{teacherId}/retry-provisioning', // POST AD08
     accessChange: 'teachers/{teacherId}/access-change', // POST AD09
     timetable: 'teachers/{teacherId}/timetable', // GET  AD09
+    nextStaffNumber: 'teachers/next-staff-number', // GET  AD08 (read-only preview)
+    importCsv: 'teachers/import', // POST AD08 (CSV rows, same validation)
   },
+
+  //  AD34 — School change history
+  auditTrail: 'audit-trail', // GET (category filter)
 
   //  AD10 — School settings and admin access
   settings: {
@@ -126,6 +131,7 @@ export const endpoints = {
   assessment: {
     policies: 'assessment-policies', // GET/POST
     lockPolicy: 'assessment-policies/{policyId}/lock', // POST
+    unlockPolicy: 'assessment-policies/{policyId}/unlock', // POST
     cycles: 'assessment-cycles', // GET/POST
     cycleById: 'assessment-cycles/{cycleId}', // GET/PATCH
     publishSchedule: 'assessment-cycles/{cycleId}/publish-schedule', // POST

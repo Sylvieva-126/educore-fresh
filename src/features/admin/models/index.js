@@ -17,6 +17,7 @@ export { ReportsModel } from './ReportsModel';
 export { FinanceModel } from './FinanceModel';
 export { FeePlanModel } from './FeePlanModel';
 export { PromotionModel } from './PromotionModel';
+export { AuditTrailModel } from './AuditTrailModel';
 export { NoticesModel } from './NoticesModel';
 export { MessagesModel } from './MessagesModel';
 export { ComplaintsModel } from './ComplaintsModel';

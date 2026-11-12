@@ -19,6 +19,8 @@ export default function LabelledField({
   numberOfLines = 1,
   keyboardType,
   autoCapitalize,
+  textContentType,
+  autoComplete,
 }) {
   const isPressable = Boolean(onPress);
   return (
@@ -42,6 +44,8 @@ export default function LabelledField({
           numberOfLines={numberOfLines}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
+          textContentType={textContentType}
+          autoComplete={autoComplete}
           autoCorrect={false}
         />
       )}

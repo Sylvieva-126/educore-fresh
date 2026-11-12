@@ -16,6 +16,11 @@ export const AssessmentModel = {
     return api.post(endpoints.assessment.lockPolicy, { policyId });
   },
 
+  /** The admin's explicit unlock — editable again until the next lock. */
+  async unlockPolicy(policyId) {
+    return api.post(endpoints.assessment.unlockPolicy, { policyId });
+  },
+
   async cycles() {
     return api.get(endpoints.assessment.cycles);
   },

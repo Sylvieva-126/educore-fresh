@@ -78,6 +78,35 @@ export class ReportsPresenter {
     this._setState({ report: null, openBatch: null });
   }
 
+  /** The REAL csv content, built from the data on screen: the open report
+      card, or a catalogue summary when no card is open. */
+  buildCsv() {
+    const report = this.state.report;
+    if (report) {
+      const lines = [
+        'Subject,CA,Exam,Total,Grade,Remark',
+        ...report.subjects.map((s) =>
+          [s.subject, s.caScore, s.examScore, s.total, s.grade, s.remark].join(','),
+        ),
+        '',
+        `Student,${report.studentName}`,
+        `Class,${report.classLabel}`,
+        `Term,${report.termLabel}`,
+        `Average,${report.average}`,
+        `Position,${report.position}`,
+      ];
+      const fileName = `${report.classLabel}-${report.studentName}-report-card.csv`.replace(/\s+/g, '-');
+      return { fileName, csv: lines.join('\n') };
+    }
+    const lines = [
+      'Class,Term,Status,Students,Published',
+      ...this.state.batches.map((b) =>
+        [b.classLabel, b.termLabel, b.status, b.studentCount, b.publishedAt || ''].join(','),
+      ),
+    ];
+    return { fileName: 'report-catalogue.csv', csv: lines.join('\n') };
+  }
+
   async runExport(batch) {
     if (this.state.working) return;
     this._setState({ working: true, notice: null, errorText: null });
@@ -89,7 +118,9 @@ export class ReportsPresenter {
       });
       this._setState({
         working: false,
-        notice: `Export acknowledged — ${result.rowCount} rows for ${batch.classLabel} (the CSV builds on-device).`,
+        notice:
+          `Export ready — ${result.rowCount} rows for ${batch.classLabel}. The CSV file is on the ` +
+          'clipboard and in the share sheet: Save to Files, email it, or send it on WhatsApp.',
       });
     } catch (error) {
       this._setState({

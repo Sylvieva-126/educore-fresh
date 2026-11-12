@@ -4,6 +4,7 @@
  * through the assignment-changes endpoint so subject records stay in sync.
  */
 import { ApiError } from '../api/ApiError';
+import { emailError, phoneError } from '../api/validation.js';
 
 export class TeacherFormPresenter {
   constructor(teacherModel, structureModel) {
@@ -19,6 +20,7 @@ export class TeacherFormPresenter {
       teacher: null,
       subjects: [], // every subject name, for the picker
       classOptions: [],
+      staffNumberPreview: null, // the number the next new teacher gets
       notice: null,
       errorText: null,
       provisioning: null,
@@ -46,10 +48,11 @@ export class TeacherFormPresenter {
   async start(teacherId) {
     this._setState({ status: 'loading', errorText: null });
     try {
-      const [subjectsPage, classesPage, teacherResult] = await Promise.all([
+      const [subjectsPage, classesPage, teacherResult, nextStaffNumber] = await Promise.all([
         this.structureModel.subjects(),
         this.structureModel.classes(),
         teacherId ? this.model.byId(teacherId) : Promise.resolve(null),
+        teacherId ? Promise.resolve(null) : this.model.nextStaffNumber().catch(() => null),
       ]);
       const teacher = teacherResult ? teacherResult.teacher || teacherResult : null;
       this._setState({
@@ -59,6 +62,8 @@ export class TeacherFormPresenter {
         teacher,
         subjects: subjectsPage.items.map((s) => s.name),
         classOptions: classesPage.items,
+        // Create mode shows the number the server will assign, read-only.
+        staffNumberPreview: teacherId ? null : (nextStaffNumber && nextStaffNumber.next) || null,
         provisioning: teacher ? teacher.provisioning || null : null,
         errorText: null,
       });
@@ -82,18 +87,14 @@ export class TeacherFormPresenter {
       this._setState({ notice: null, errorText: "Enter the teacher's full name." });
       return false;
     }
-    if (fields.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.trim())) {
-      this._setState({
-        notice: null,
-        errorText: 'That email address does not look right — e.g. name@greenfield.edu.ng.',
-      });
+    const emailProblem = emailError(fields.email);
+    if (emailProblem) {
+      this._setState({ notice: null, errorText: emailProblem });
       return false;
     }
-    if (fields.phone && !/^\+?[0-9][0-9\s\-()]{6,18}$/.test(fields.phone.trim())) {
-      this._setState({
-        notice: null,
-        errorText: 'That phone number does not look right — use digits with an optional +234, e.g. +234 810 444 5050.',
-      });
+    const phoneProblem = phoneError(fields.phone);
+    if (phoneProblem) {
+      this._setState({ notice: null, errorText: phoneProblem });
       return false;
     }
     this._setState({ saving: true, notice: null, errorText: null });
