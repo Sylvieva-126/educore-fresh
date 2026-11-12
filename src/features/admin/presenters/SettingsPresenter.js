@@ -73,14 +73,15 @@ export class SettingsPresenter {
       this._setState({ notice: null, errorText: 'The school needs a name.' });
       return false;
     }
-    // Session: two consecutive years, e.g. 2026-2027. Spaces are tolerated
-    // and normalised away; anything else ("2010- 2067", "2026/2027") refuses.
+    // Session: the CURRENT year pair only — it follows the device date and
+    // nobody types it ("2029-2030" is refused, not just any two years).
     const session = String(fields.sessionLabel || '').replace(/\s+/g, '');
-    const sessionMatch = /^(\d{4})-(\d{4})$/.exec(session);
-    if (!sessionMatch || Number(sessionMatch[2]) !== Number(sessionMatch[1]) + 1) {
+    const now = new Date();
+    const currentSession = `${now.getFullYear()}-${now.getFullYear() + 1}`;
+    if (session !== currentSession) {
       this._setState({
         notice: null,
-        errorText: 'The session must be two consecutive years — e.g. 2026-2027.',
+        errorText: `The session follows the device date and cannot be changed — it is ${currentSession}.`,
       });
       return false;
     }

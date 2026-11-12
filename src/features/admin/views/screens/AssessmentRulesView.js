@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import { LoadingView, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
+import { digitsOnly } from '../../utils/validators';
 import { PrimaryButton, SecondaryButton } from './AdminHomeView';
 import { AssessmentRulesPresenter } from '../../presenters/AssessmentRulesPresenter';
 import { AssessmentModel } from '../../models';
@@ -98,7 +99,7 @@ export default function AssessmentRulesView({ navigation }) {
             style={styles.input}
             keyboardType="number-pad"
             value={caText}
-            onChangeText={setCaText}
+            onChangeText={(t) => setCaText(digitsOnly(t))}
             editable={!locked}
             placeholder="30"
             placeholderTextColor={colors.muted}
@@ -110,7 +111,7 @@ export default function AssessmentRulesView({ navigation }) {
             style={styles.input}
             keyboardType="number-pad"
             value={examText}
-            onChangeText={setExamText}
+            onChangeText={(t) => setExamText(digitsOnly(t))}
             editable={!locked}
             placeholder="70"
             placeholderTextColor={colors.muted}
@@ -124,7 +125,7 @@ export default function AssessmentRulesView({ navigation }) {
         style={styles.input}
         keyboardType="number-pad"
         value={passText}
-        onChangeText={setPassText}
+        onChangeText={(t) => setPassText(digitsOnly(t))}
         editable={!locked}
         placeholder="40"
         placeholderTextColor={colors.muted}
@@ -141,7 +142,7 @@ export default function AssessmentRulesView({ navigation }) {
             style={styles.bandInput}
             keyboardType="number-pad"
             value={bandTexts[g.grade] ?? ''}
-            onChangeText={(t) => setBandTexts((prev) => ({ ...prev, [g.grade]: t }))}
+            onChangeText={(t) => setBandTexts((prev) => ({ ...prev, [g.grade]: digitsOnly(t) }))}
             editable={!locked}
             placeholderTextColor={colors.muted}
           />

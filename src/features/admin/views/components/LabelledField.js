@@ -1,7 +1,10 @@
 /**
  * LabelledField — a labelled input row (LabelledField in the design system).
- * Pass `onPress` + `displayValue` for a field that opens a SelectSheet, or
- * `value` + `onChangeText` for typed input. `error` shows inline validation.
+ * Pass `onPress` + `displayValue` for a field that opens a SelectSheet,
+ * `value` + `onChangeText` for typed input, or ONLY `displayValue` (no
+ * onPress, no onChangeText) for a read-only field — the staff number and
+ * the automatic session render as plain text that cannot be edited,
+ * autofilled or typed into.
  */
 import React from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
@@ -23,6 +26,7 @@ export default function LabelledField({
   autoComplete,
 }) {
   const isPressable = Boolean(onPress);
+  const isReadOnly = !isPressable && !onChangeText && Boolean(displayValue);
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
@@ -33,6 +37,10 @@ export default function LabelledField({
           </Text>
           <Text style={styles.chevron}>⌄</Text>
         </Pressable>
+      ) : isReadOnly ? (
+        <View style={[styles.box, styles.readOnlyBox]}>
+          <Text style={[styles.value, styles.readOnlyText]}>{displayValue}</Text>
+        </View>
       ) : (
         <TextInput
           style={[styles.box, styles.input, multiline && { minHeight: 88 }]}
@@ -56,6 +64,8 @@ export default function LabelledField({
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: spacing.md },
+  readOnlyBox: { backgroundColor: colors.positive },
+  readOnlyText: { color: colors.text, paddingVertical: 12 },
   label: { ...typography.label, marginBottom: spacing.xs },
   box: {
     ...touchTarget,

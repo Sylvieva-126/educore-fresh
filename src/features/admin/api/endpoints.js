@@ -80,6 +80,8 @@ export const endpoints = {
     sessionById: 'sessions/{sessionId}', // PATCH
     activateSession: 'sessions/{sessionId}/activate', // POST
     calendar: 'calendar', // GET
+    events: 'calendar-events', // POST (add a key date)
+    today: 'calendar-today', // POST (add to today at school)
     drafts: 'calendar-drafts', // GET/POST
     draftById: 'calendar-drafts/{draftId}', // GET/PUT
     validateDraft: 'calendar-drafts/{draftId}/validate', // POST

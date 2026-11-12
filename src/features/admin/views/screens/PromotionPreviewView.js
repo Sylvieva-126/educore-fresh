@@ -16,6 +16,23 @@ import { PromotionPreviewPresenter } from '../../presenters/PromotionPreviewPres
 import { PromotionModel, AcademicStructureModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
 
+/** Where a decision sends the student: JSS3 A promotes into SSS1 A (same
+    suffix), SSS3 graduates, repeating stays in the same class. */
+function nextClassOf(classLabel) {
+  const text = String(classLabel || '');
+  const m = /^(JSS|SSS)(\d)/.exec(text.toUpperCase());
+  if (!m) return 'the next class';
+  if (m[1] === 'SSS' && m[2] === '3') return 'Graduates';
+  const suffix = text.split(' ').slice(1).join(' ') || 'A';
+  return `${m[1]}${Number(m[2]) + 1} ${suffix}`;
+}
+
+function destinationLabel(classLabel, decision) {
+  if (decision === 'Promote') return `promote · moves to ${nextClassOf(classLabel)}`;
+  if (decision === 'Repeat') return `repeat · stays in ${classLabel}`;
+  return 'graduate · leaves with their result slip';
+}
+
 export default function PromotionPreviewView({ navigation }) {
   const [presenter] = useState(() => new PromotionPreviewPresenter(PromotionModel, AcademicStructureModel));
   const [state, setState] = useState(presenter.initialState);
@@ -117,12 +134,15 @@ export default function PromotionPreviewView({ navigation }) {
             items={preview.rows.map((r) => ({
               id: String(r.studentId),
               title: r.fullName,
-              meta: `Average ${r.average}% — ${r.decision}`,
+              meta: `Average ${r.average}% — ${destinationLabel(preview.classLabel, r.decision)}`,
               status: r.decision,
+              // The tap opens the decision picker; the card is not a link to
+              // another page, so no arrow.
+              static: true,
               raw: r,
             }))}
             onPressItem={(row) => {
-              if (preview.status === 'Draft') onRowPress(row.raw);
+              if (preview.status !== 'Confirmed') onRowPress(row.raw);
             }}
             emptyText="No students in this preview."
           />
@@ -131,7 +151,8 @@ export default function PromotionPreviewView({ navigation }) {
           ) : (
             <Text style={styles.hint}>
               Tap a student to change their decision, then Save decisions. Students only move
-              up when this preview is confirmed in "Approve promotion and graduation".
+              when this preview is confirmed in "Approve promotion and graduation" — JSS1
+              becomes JSS2, JSS3 becomes SSS1, and SSS3 graduates.
             </Text>
           )}
 

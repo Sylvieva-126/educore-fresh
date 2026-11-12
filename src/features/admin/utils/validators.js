@@ -18,6 +18,13 @@ export function cleanText(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
+/** Digits only — number pads still allow PASTED text, so every numeric
+    field (weights, pass mark, amounts) strips anything else as it types.
+    Validation on save stays the second line of defence. */
+export function digitsOnly(value) {
+  return String(value ?? '').replace(/[^0-9]/g, '');
+}
+
 /** Drop spaces, dashes, dots and brackets; keep digits and one leading +. */
 export function normalizePhone(value) {
   const text = String(value ?? '').trim();
@@ -76,4 +83,24 @@ export function normalizeClassLabel(value) {
 
 export function isValidClassLabel(value) {
   return CLASS_LABELS.includes(normalizeClassLabel(value));
+}
+
+/** Where a promotion decision sends the student: JSS3 A promotes into SSS1 A
+    (same suffix), SSS3 graduates, repeating stays in the same class. Used on
+    the preview cards ("Average 38% — repeat · stays in JSS1 A"). */
+export function nextClassOf(classLabel) {
+  const text = String(classLabel || '');
+  const m = /^(JSS|SSS)(\d)/.exec(text.toUpperCase());
+  if (!m) return 'the next class';
+  const suffix = text.split(' ').slice(1).join(' ') || 'A';
+  // JSS3 crosses into the senior school; SSS3 graduates.
+  if (m[1] === 'JSS' && m[2] === '3') return `SSS1 ${suffix}`;
+  if (m[1] === 'SSS' && m[2] === '3') return 'Graduates';
+  return `${m[1]}${Number(m[2]) + 1} ${suffix}`;
+}
+
+export function destinationLabel(classLabel, decision) {
+  if (decision === 'Promote') return `promote · moves to ${nextClassOf(classLabel)}`;
+  if (decision === 'Repeat') return `repeat · stays in ${classLabel}`;
+  return 'graduate · leaves with their result slip';
 }

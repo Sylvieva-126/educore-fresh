@@ -8,7 +8,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import StatusBadge from './StatusBadge';
 import { colors, typography, spacing, statusTone } from '../theme';
 
-export function RecordRow({ title, meta, status, onPress }) {
+export function RecordRow({ title, meta, status, onPress, showChevron = true }) {
   return (
     <Pressable
       onPress={onPress}
@@ -34,7 +34,10 @@ export function RecordRow({ title, meta, status, onPress }) {
           style={styles.statusBadge}
         />
       ) : null}
-      <Text style={styles.chevron}>›</Text>
+      {/* The chevron means "this opens something". Rows that are informational
+          (or whose tap is handled inside the screen) set showChevron=false —
+          no arrows that lead nowhere. */}
+      {showChevron ? <Text style={styles.chevron}>›</Text> : null}
     </Pressable>
   );
 }
@@ -51,7 +54,9 @@ export default function RecordList({ items, onPressItem, emptyText = 'No records
           title={item.title}
           meta={item.meta}
           status={item.status}
-          onPress={() => onPressItem && onPressItem(item)}
+          onPress={onPressItem ? () => onPressItem(item) : null}
+          // A row can opt out of the arrow (item.static) while keeping its tap.
+          showChevron={Boolean(onPressItem) && !item.static}
         />
       ))}
     </View>

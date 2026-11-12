@@ -26,7 +26,13 @@
  * call goes to the network again.
  */
 
-import { emailError, phoneError, timeError, minutesOf } from './validation.js';
+import {
+  emailError,
+  nigerianPhoneDigits,
+  phoneError,
+  timeError,
+  minutesOf,
+} from './validation.js';
 
 const SCHOOL_NAME = 'Greenfield Secondary School';
 const SESSION_LABEL = '2026/2027';
@@ -360,6 +366,29 @@ function buildClasses() {
   });
 }
 
+/** The LIVE class list — created and renamed classes count everywhere at
+    once (timetables, promotion, subject rules, the student form). */
+const CLASSES = buildClasses();
+
+function liveClassNames() {
+  return CLASSES.map((c) => c.classLabel);
+}
+
+/** Parse a class label: a JSS/SSS level (1-3) plus any letter suffix —
+    "A", "C", "Diamond", "Gold Silver". Returns { level, label } or null. */
+function parseClassLabel(raw) {
+  const text = String(raw || '').trim().replace(/\s+/g, ' ');
+  const m = /^((?:JSS|SSS)\d)\s+([A-Za-z][A-Za-z ]{0,11})$/i.exec(text);
+  if (!m) return null;
+  const level = m[1].toUpperCase();
+  const suffix = m[2].trim().replace(/\s+/g, ' ');
+  return { level, label: `${level} ${suffix}` };
+}
+
+function classLabelFormatError() {
+  return 'Classes look like "JSS1 A" or "SSS2 Diamond" — pick a JSS/SSS level (1-3) and any letter suffix (A, B, Diamond, Gold…).';
+}
+
 // AD14/AD15 — timetable drafts. 5 days × 6 periods; each class gets its own
 // teacher offset so the seeded drafts never clash with each other.
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -382,7 +411,7 @@ function makeSlots(classLabel, filledDays) {
     const match = teachers.find((t) => (t.subjects || []).includes(subject));
     return match ? match.fullName : null;
   };
-  const offset = CLASS_NAMES.indexOf(classLabel);
+  const offset = Math.max(0, CLASS_NAMES.indexOf(classLabel)); // custom classes start at 0
   const slots = [];
   DAYS.forEach((day, d) => {
     PERIOD_TIMES.forEach((time, p) => {
@@ -992,20 +1021,81 @@ function nextStaffNumber() {
   return `GST/${String(max + 1).padStart(3, '0')}`;
 }
 
+/** Duplicate teacher detection shared by the create form, the edit guard and
+    the CSV import — names the existing teacher so the office knows what to
+    do (open their profile instead of registering a twin). */
+function teacherDuplicates(b, excludeId) {
+  const emailKey = String(b.email || '').trim().toLowerCase();
+  const phoneKey = nigerianPhoneDigits(b.phone);
+  const emailTwin = emailKey
+    ? TEACHERS.find(
+        (t) => t.id !== excludeId && t.email && String(t.email).trim().toLowerCase() === emailKey,
+      )
+    : null;
+  const phoneTwin = phoneKey
+    ? TEACHERS.find(
+        (t) => t.id !== excludeId && t.phone && nigerianPhoneDigits(t.phone) === phoneKey,
+      )
+    : null;
+  if (emailTwin && phoneTwin) {
+    return `A teacher already exists with the same email and phone number — ${emailTwin.fullName} (${emailTwin.staffNumber}). Use different details, or open that teacher's profile.`;
+  }
+  if (emailTwin) {
+    return `A teacher already exists with this email — ${emailTwin.fullName} (${emailTwin.staffNumber}).`;
+  }
+  if (phoneTwin) {
+    return `A teacher already exists with this phone number — ${phoneTwin.fullName} (${phoneTwin.staffNumber}).`;
+  }
+  return null;
+}
+
 /** One validation opinion for a teacher row — used by the create form, the
     CSV import and the PATCH guard, so manual entry and imports always obey
     the same rules. Returns an error string or null. */
-function validateTeacherRow(b) {
+function validateTeacherRow(b, excludeId) {
   if (!cleanText(b.fullName)) return "Enter the teacher's full name.";
   const email = emailError(b.email);
   if (email) return email;
   const phone = phoneError(b.phone);
   if (phone) return phone;
+  const duplicate = teacherDuplicates(b, excludeId);
+  if (duplicate) return duplicate;
   const subjects = Array.isArray(b.subjects) ? b.subjects.filter(Boolean) : [];
   const unknown = subjects.find((s) => !SUBJECTS.some((sub) => sub.name === s));
   if (unknown) return `${unknown} is not in the subject list.`;
-  if (b.formClass && !CLASS_NAMES.includes(b.formClass)) {
+  if (b.formClass && !liveClassNames().includes(b.formClass)) {
     return `${b.formClass} is not one of this school's classes.`;
+  }
+  return null;
+}
+
+/** The grading-policy arithmetic in ONE place: the save guard and the lock
+    guard share it, so a wrong policy is refused on save AND can never be
+    locked. Returns the problem message or null. */
+function policyArithmeticError(p) {
+  const ca = Number(p.caWeight);
+  const exam = Number(p.examWeight);
+  const pass = Number(p.passMark);
+  if (!Number.isFinite(ca) || !Number.isFinite(exam) || ca < 0 || exam < 0) {
+    return 'Enter the CA and exam weights as numbers.';
+  }
+  if (ca + exam !== 100) {
+    return `CA (${ca}%) + exam (${exam}%) must add up to exactly 100%.`;
+  }
+  if (!Number.isFinite(pass) || pass < 34 || pass > 100) {
+    // One message for every out-of-range case (too small, 49494, NaN…).
+    return 'The pass mark must be between 34 and 100.';
+  }
+  const grades = Array.isArray(p.grades) ? p.grades : [];
+  for (let i = 1; i < grades.length; i++) {
+    if (Number(grades[i - 1].minScore) <= Number(grades[i].minScore)) {
+      return `Grade ${grades[i - 1].grade} must start above grade ${grades[i].grade} — check the minimum scores.`;
+    }
+  }
+  // The passing grades start at the pass mark: only F may sit below it.
+  const belowPass = grades.filter((g) => g.grade !== 'F' && Number(g.minScore) < pass);
+  if (belowPass.length) {
+    return `Grade ${belowPass[0].grade} starts below the pass mark — every grade except F must start at ${pass}% or above.`;
   }
   return null;
 }
@@ -1144,10 +1234,75 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     }
   }
 
-  // AD12 — class list and subject list
+  // AD12 — class list and subject list. Classes can be created and renamed
+  // (JSS/SSS level + any letter suffix); every guard reads the LIVE list.
   if (seg[0] === 'classes' && seg.length === 1) {
-    if (m === 'GET') return paginate(buildClasses(), query.page);
-    if (m === 'POST') return { ok: false, error: 'Class creation comes with the real backend.' };
+    if (m === 'GET') return paginate(CLASSES, query.page);
+    if (m === 'POST') {
+      const parsed = parseClassLabel(body && body.classLabel);
+      if (!parsed) return { ok: false, error: classLabelFormatError() };
+      if (liveClassNames().includes(parsed.label)) {
+        return { ok: false, error: `${parsed.label} already exists — pick a different suffix.` };
+      }
+      const cls = {
+        id: `cls-${Date.now()}`,
+        classLabel: parsed.label,
+        department: parsed.level.startsWith('SSS') ? SSS_DEPARTMENTS[parsed.level] || null : null,
+        formTeacherName: 'Not assigned yet',
+        studentCount: 0,
+        subjectCount: 0,
+      };
+      CLASSES.push(cls);
+      AUDIT_LOG.unshift({
+        id: `aud-${Date.now()}`,
+        at: todayLabel(),
+        actor: 'Admin (you)',
+        category: 'Records',
+        action: 'Created a class',
+        detail: parsed.label,
+      });
+      return { ok: true, class: cls };
+    }
+  }
+  if (seg[0] === 'classes' && seg.length === 2) {
+    const cls = CLASSES.find((c) => c.id === seg[1]);
+    if (!cls) return { ok: false, error: 'Class not found.' };
+    if (m === 'PATCH') {
+      const parsed = parseClassLabel(body && body.classLabel);
+      if (!parsed) return { ok: false, error: classLabelFormatError() };
+      const clash = CLASSES.find((c) => c.id !== cls.id && c.classLabel === parsed.label);
+      if (clash) {
+        return { ok: false, error: `${parsed.label} already exists — pick a different suffix.` };
+      }
+      const old = cls.classLabel;
+      cls.classLabel = parsed.label;
+      // Cascade the rename so students, subjects, teachers, timetables and
+      // promotion previews all follow the class.
+      STUDENTS.forEach((s) => {
+        if (s.classLabel === old) s.classLabel = parsed.label;
+      });
+      SUBJECTS.forEach((s) => {
+        s.classes = s.classes.map((c) => (c === old ? parsed.label : c));
+      });
+      TEACHERS.forEach((t) => {
+        if (t.formClass === old) t.formClass = parsed.label;
+      });
+      TIMETABLE_DRAFTS.forEach((d) => {
+        if (d.classLabel === old) d.classLabel = parsed.label;
+      });
+      PROMOTION_PREVIEWS.forEach((p) => {
+        if (p.classLabel === old) p.classLabel = parsed.label;
+      });
+      AUDIT_LOG.unshift({
+        id: `aud-${Date.now()}`,
+        at: todayLabel(),
+        actor: 'Admin (you)',
+        category: 'Records',
+        action: 'Renamed a class',
+        detail: `${old} → ${parsed.label}`,
+      });
+      return { ok: true, class: cls };
+    }
   }
   // AD13 — one class workspace: the class, its roster, its subjects
   if (seg[0] === 'classes' && seg.length === 3 && seg[2] === 'workspace' && m === 'GET') {
@@ -1171,7 +1326,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
         ? body.departments.map((d) => String(d).trim()).filter(Boolean)
         : [];
       const classes = Array.isArray(body && body.classes)
-        ? body.classes.filter((c) => CLASS_NAMES.includes(c))
+        ? body.classes.filter((c) => liveClassNames().includes(c))
         : [];
       const teachers = Array.isArray(body && body.teachers) ? body.teachers : [];
       const KNOWN_DEPARTMENTS = ['Core', 'JSS', 'Science', 'Humanities / Arts', 'Business / Commercial'];
@@ -1229,7 +1384,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       }
       const departments = Array.isArray(b.departments) ? b.departments : subject.departments;
       const classes = Array.isArray(b.classes)
-        ? b.classes.filter((c) => CLASS_NAMES.includes(c))
+        ? b.classes.filter((c) => liveClassNames().includes(c))
         : subject.classes;
       const KNOWN_DEPARTMENTS = ['Core', 'JSS', 'Science', 'Humanities / Arts', 'Business / Commercial'];
       const unknownDept = departments.find((d) => !KNOWN_DEPARTMENTS.includes(d));
@@ -1272,7 +1427,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     if (rowProblem) return { ok: false, error: rowProblem };
     const fullName = cleanText(b.fullName);
     const subjects = Array.isArray(b.subjects) ? b.subjects.filter(Boolean) : [];
-    const formClass = b.formClass && CLASS_NAMES.includes(b.formClass) ? b.formClass : null;
+    const formClass = b.formClass && liveClassNames().includes(b.formClass) ? b.formClass : null;
     const teacher = {
       id: `tch-${Date.now()}`,
       fullName,
@@ -1319,7 +1474,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
         phone: cleanText(row.phone),
         email: cleanText(row.email),
         subjects: (row.subjects || []).filter(Boolean),
-        formClass: row.formClass && CLASS_NAMES.includes(row.formClass) ? row.formClass : null,
+        formClass: row.formClass && liveClassNames().includes(row.formClass) ? row.formClass : null,
         status: 'Active',
       };
       TEACHERS.push(teacher);
@@ -1334,13 +1489,8 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       });
       imported.push({ row: i + 1, teacher });
     });
-    if (!imported.length) {
-      return {
-        ok: false,
-        error: `No row could be imported. First problem: ${failed[0].error}`,
-        failed,
-      };
-    }
+    // Per-row results ALWAYS come back — even when nothing imported — so the
+    // office sees every problem line instead of a dead-end refusal.
     return { ok: true, imported, failed };
   }
   if (seg[0] === 'teachers' && seg.length === 2) {
@@ -1356,12 +1506,15 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       if (emailProblem) return { ok: false, error: emailProblem };
       const phoneProblem = phoneError(b.phone);
       if (phoneProblem) return { ok: false, error: phoneProblem };
+      // Another teacher may already own that email or number.
+      const duplicate = teacherDuplicates(b, teacher.id);
+      if (duplicate) return { ok: false, error: duplicate };
       if (b.fullName !== undefined) teacher.fullName = cleanText(b.fullName);
       if (b.staffNumber !== undefined) teacher.staffNumber = cleanText(b.staffNumber);
       if (b.phone !== undefined) teacher.phone = cleanText(b.phone);
       if (b.email !== undefined) teacher.email = cleanText(b.email);
       if (b.formClass !== undefined) {
-        teacher.formClass = b.formClass && CLASS_NAMES.includes(b.formClass) ? b.formClass : null;
+        teacher.formClass = b.formClass && liveClassNames().includes(b.formClass) ? b.formClass : null;
       }
       return { ok: true, teacher };
     }
@@ -1427,9 +1580,13 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     }
     if (b.sessionLabel !== undefined) {
       const session = String(b.sessionLabel).replace(/\s+/g, '');
-      const years = /^(\d{4})-(\d{4})$/.exec(session);
-      if (!years || Number(years[2]) !== Number(years[1]) + 1) {
-        return { ok: false, error: 'The session must be two consecutive years — e.g. 2026-2027.' };
+      const now = new Date();
+      const currentSession = `${now.getFullYear()}-${now.getFullYear() + 1}`;
+      if (session !== currentSession) {
+        return {
+          ok: false,
+          error: `The session follows the device date and cannot be changed — it is ${currentSession}.`,
+        };
       }
       SETTINGS.sessionLabel = session;
     }
@@ -1499,7 +1656,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       if (!classLabel) {
         return { ok: false, error: 'Pick a class from the list first, then try again.' };
       }
-      if (!CLASS_NAMES.includes(classLabel)) {
+      if (!liveClassNames().includes(classLabel)) {
         return {
           ok: false,
           error: `"${classLabel}" is not one of this school's classes — pick from the class list.`,
@@ -1678,7 +1835,9 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   }
 
   // AD18 — assessment policy (grading rules). One active policy per term;
-  // the office edits it, the server checks the arithmetic, lock freezes it.
+  // the office edits it, the server checks the arithmetic, lock freezes it —
+  // but lock runs the SAME arithmetic check first: a wrong policy cannot be
+  // locked, it can only be fixed or unlocked.
   if (seg[0] === 'assessment-policies' && seg.length === 1) {
     if (m === 'GET') return paginate([ASSESSMENT_POLICY], query.page);
     if (m === 'POST') {
@@ -1689,41 +1848,22 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
         };
       }
       const b = body || {};
-      const ca = Number(b.caWeight);
-      const exam = Number(b.examWeight);
-      const pass = Number(b.passMark);
-      if (!Number.isFinite(ca) || !Number.isFinite(exam) || ca < 0 || exam < 0) {
-        return { ok: false, error: 'Enter the CA and exam weights as numbers.' };
-      }
-      if (ca + exam !== 100) {
-        return { ok: false, error: `CA (${ca}%) + exam (${exam}%) must add up to exactly 100%.` };
-      }
-      if (!Number.isFinite(pass) || pass < 34 || pass > 100) {
-        // One message for every out-of-range case (too small, 49494, NaN…).
-        return { ok: false, error: 'The pass mark must be between 34 and 100.' };
-      }
-      const grades = Array.isArray(b.grades) ? b.grades : ASSESSMENT_POLICY.grades;
-      for (let i = 1; i < grades.length; i++) {
-        if (Number(grades[i - 1].minScore) <= Number(grades[i].minScore)) {
-          return {
-            ok: false,
-            error: `Grade ${grades[i - 1].grade} must start above grade ${grades[i].grade} — check the minimum scores.`,
-          };
-        }
-      }
-      // The passing grades start at the pass mark: only F may sit below it.
-      const belowPass = grades.filter((g) => g.grade !== 'F' && Number(g.minScore) < pass);
-      if (belowPass.length) {
-        return {
-          ok: false,
-          error: `Grade ${belowPass[0].grade} starts below the pass mark — every grade except F must start at ${pass}% or above.`,
-        };
-      }
-      ASSESSMENT_POLICY.caWeight = ca;
-      ASSESSMENT_POLICY.examWeight = exam;
-      ASSESSMENT_POLICY.passMark = pass;
+      const candidate = {
+        caWeight: Number(b.caWeight),
+        examWeight: Number(b.examWeight),
+        passMark: Number(b.passMark),
+        grades: Array.isArray(b.grades) ? b.grades : ASSESSMENT_POLICY.grades,
+      };
+      const problem = policyArithmeticError(candidate);
+      if (problem) return { ok: false, error: problem };
+      ASSESSMENT_POLICY.caWeight = candidate.caWeight;
+      ASSESSMENT_POLICY.examWeight = candidate.examWeight;
+      ASSESSMENT_POLICY.passMark = candidate.passMark;
       if (Array.isArray(b.grades)) {
-        ASSESSMENT_POLICY.grades = grades.map((g) => ({ ...g, minScore: Number(g.minScore) }));
+        ASSESSMENT_POLICY.grades = candidate.grades.map((g) => ({
+          ...g,
+          minScore: Number(g.minScore),
+        }));
       }
       return { ok: true, policy: ASSESSMENT_POLICY };
     }
@@ -1731,6 +1871,12 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   if (
     seg[0] === 'assessment-policies' && seg.length === 3 && seg[2] === 'lock' && m === 'POST'
   ) {
+    // Locking a wrong policy would freeze the mistakes for the whole term —
+    // the arithmetic must be right first.
+    const lockProblem = policyArithmeticError(ASSESSMENT_POLICY);
+    if (lockProblem) {
+      return { ok: false, error: `${lockProblem} Fix the rules before locking.` };
+    }
     ASSESSMENT_POLICY.locked = true;
     AUDIT_LOG.unshift({
       id: `aud-${Date.now()}`,
@@ -1930,7 +2076,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     if (m === 'GET') return paginate(PROMOTION_PREVIEWS, query.page);
     if (m === 'POST') {
       const classLabel = (body && body.classLabel) || '';
-      if (!CLASS_NAMES.includes(classLabel)) {
+      if (!liveClassNames().includes(classLabel)) {
         return { ok: false, error: 'Pick a class from the list.' };
       }
       if (PROMOTION_PREVIEWS.some((p) => p.classLabel === classLabel && p.status !== 'Confirmed')) {
@@ -2219,8 +2365,102 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
 
   // AD11 — school calendar and sessions
   if (seg[0] === 'calendar' && seg.length === 1 && m === 'GET') return CALENDAR;
+  // AD11 — add a key date ("Science fair", mid-term break…), newest-sorted.
+  if (seg[0] === 'calendar-events' && seg.length === 1 && m === 'POST') {
+    const date = cleanText(body && body.date);
+    const title = cleanText(body && body.title);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return { ok: false, error: 'Give the date as YYYY-MM-DD — e.g. 2026-12-18.' };
+    }
+    if (!title) {
+      return { ok: false, error: 'Give the key date a title — e.g. "Science fair".' };
+    }
+    const entry = {
+      id: `kd-${Date.now()}`,
+      date,
+      title,
+      detail: cleanText(body && body.detail) || 'Added by the office',
+    };
+    CALENDAR.keyDates = [...CALENDAR.keyDates, entry].sort((a, b) =>
+      String(a.date).localeCompare(String(b.date)),
+    );
+    AUDIT_LOG.unshift({
+      id: `aud-${Date.now()}`,
+      at: todayLabel(),
+      actor: 'Admin (you)',
+      category: 'Records',
+      action: 'Added a key date',
+      detail: `${date} · ${title}`,
+    });
+    return { ok: true, calendar: CALENDAR };
+  }
+  // AD11 — add an activity to "Today at school" (assembly, briefing…).
+  if (seg[0] === 'calendar-today' && seg.length === 1 && m === 'POST') {
+    const rawTime = cleanText(body && body.time);
+    const subject = cleanText(body && body.subject);
+    // The office types digits only (915, 1415); "09:15" with a colon is fine too.
+    let hh;
+    let mm;
+    const digits = rawTime.replace(/\D/g, '');
+    if (/^\d{3,4}$/.test(digits)) {
+      hh = Number(digits.slice(0, -2));
+      mm = Number(digits.slice(-2));
+    } else {
+      const colon = /^(\d{1,2}):(\d{2})$/.exec(rawTime);
+      if (colon) {
+        hh = Number(colon[1]);
+        mm = Number(colon[2]);
+      }
+    }
+    if (hh === undefined || hh > 23 || mm > 59) {
+      return {
+        ok: false,
+        error: 'Give the time on the 24-hour clock — digits only, e.g. 915 or 1415.',
+      };
+    }
+    if (!subject) {
+      return { ok: false, error: 'Give the activity a title — e.g. "Staff briefing".' };
+    }
+    const entry = {
+      id: `sch-${Date.now()}`,
+      time: `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`,
+      subject,
+      detail: cleanText(body && body.detail) || 'Main school',
+    };
+    CALENDAR.todaySchedule = [...CALENDAR.todaySchedule, entry].sort((a, b) =>
+      String(a.time).localeCompare(String(b.time)),
+    );
+    return { ok: true, calendar: CALENDAR };
+  }
   if (seg[0] === 'sessions' && seg.length === 1 && m === 'GET') {
     return { items: SESSIONS_LIST };
+  }
+  // AD11 — plan the next session (2027/2028…). The CURRENT session stays
+  // automatic — this is for looking ahead.
+  if (seg[0] === 'sessions' && seg.length === 1 && m === 'POST') {
+    const label = String((body && body.label) || '').trim().replace(/\s+/g, '');
+    const years = /^(\d{4})\/(\d{4})$/.exec(label);
+    if (!years || Number(years[2]) !== Number(years[1]) + 1) {
+      return { ok: false, error: 'Sessions look like 2027/2028 — a year and the year after it.' };
+    }
+    if (SESSIONS_LIST.some((s) => s.label === label)) {
+      return { ok: false, error: `${label} is already on the calendar.` };
+    }
+    const newest = Math.max(...SESSIONS_LIST.map((s) => Number(s.label.split('/')[0])));
+    if (Number(years[1]) <= newest) {
+      return {
+        ok: false,
+        error: `Add the NEXT session — the newest on the calendar is ${newest}/${newest + 1}.`,
+      };
+    }
+    SESSIONS_LIST.push({
+      id: `ses-${Date.now()}`,
+      label,
+      status: 'Planned',
+      terms: 'Planned — set the term dates when the ministry releases them.',
+    });
+    SESSIONS_LIST.sort((a, b) => b.label.localeCompare(a.label)); // newest first
+    return { ok: true, sessions: SESSIONS_LIST };
   }
 
   // AD29/AD30 — messages inbox and threads

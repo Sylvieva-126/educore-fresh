@@ -7,6 +7,7 @@ import { View, Text, StyleSheet, Alert } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import { LoadingView, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
+import { digitsOnly } from '../../utils/validators';
 import LabelledField from '../components/LabelledField';
 import SelectSheet from '../components/SelectSheet';
 import { SecondaryButton } from './AdminHomeView';
@@ -127,7 +128,7 @@ export default function FeePlansView({ navigation }) {
             label="Amount (₦)"
             placeholder="e.g. 20000"
             value={formAmount}
-            onChangeText={setFormAmount}
+            onChangeText={(t) => setFormAmount(digitsOnly(t))}
             keyboardType="number-pad"
           />
           <SecondaryButton

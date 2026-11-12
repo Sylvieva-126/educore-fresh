@@ -20,6 +20,7 @@ export class AcademicStructurePresenter {
       notice: null,
       errorText: null,
       savingSubject: false,
+      savingClass: false,
     };
     this.state = this.initialState;
   }
@@ -68,6 +69,64 @@ export class AcademicStructurePresenter {
 
   onRetry() {
     return this.load();
+  }
+
+  /** Add a class: a JSS/SSS level plus any letter suffix (A, B, Diamond,
+      Gold…). The server checks the shape and refuses duplicates. */
+  async addClass(fields) {
+    if (this.state.savingClass) return false;
+    const suffix = String(fields.suffix || '').trim();
+    if (!fields.level) {
+      this._setState({ notice: null, errorText: 'Pick the level — JSS1 to SSS3.' });
+      return false;
+    }
+    if (!/^[A-Za-z][A-Za-z ]{0,11}$/.test(suffix)) {
+      this._setState({
+        notice: null,
+        errorText: 'The suffix is letters only — e.g. A, B, Diamond, Gold (up to 12 letters).',
+      });
+      return false;
+    }
+    this._setState({ savingClass: true, notice: null, errorText: null });
+    try {
+      const result = await this.model.createClass({ classLabel: `${fields.level} ${suffix}` });
+      this._setState({
+        savingClass: false,
+        notice: `${result.class.classLabel} created — enrol students into it and tick it on subjects.`,
+      });
+      await this.load({ showLoading: false });
+      return true;
+    } catch (error) {
+      this._setState({
+        savingClass: false,
+        notice: null,
+        errorText: error instanceof ApiError ? error.message : 'The class was not created.',
+      });
+      return false;
+    }
+  }
+
+  /** Rename a class (the suffix changes; the level stays). Students, subjects,
+      teachers, timetables and promotion previews follow the new name. */
+  async renameClass(classId, newLabel) {
+    if (this.state.savingClass) return false;
+    this._setState({ savingClass: true, notice: null, errorText: null });
+    try {
+      const result = await this.model.updateClass(classId, { classLabel: newLabel });
+      this._setState({
+        savingClass: false,
+        notice: `Class renamed to ${result.class.classLabel} — every record follows it.`,
+      });
+      await this.load({ showLoading: false });
+      return true;
+    } catch (error) {
+      this._setState({
+        savingClass: false,
+        notice: null,
+        errorText: error instanceof ApiError ? error.message : 'The class was not renamed.',
+      });
+      return false;
+    }
   }
 
   /** Add a subject: departments, classes and its assigned teachers. */

@@ -268,29 +268,31 @@ export default function TimetableBuilderView({ navigation, route }) {
                   emptyText=""
                 />
                 {daySlots.length < 8 && draft.status !== 'Published' ? (
-                  <SecondaryButton
-                    label={`+ Add a period on ${day}`}
-                    disabled={state.saving}
-                    onPress={() => {
-                      Alert.alert(`Add a period on ${day}`, 'What kind of period?', [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Activity',
-                          onPress: () => {
-                            setAddDay(day);
-                            setActivitySheet(true);
+                  <View style={styles.addWrap}>
+                    <SecondaryButton
+                      label={`+ Add a period on ${day}`}
+                      disabled={state.saving}
+                      onPress={() => {
+                        Alert.alert(`Add a period on ${day}`, 'What kind of period?', [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Activity',
+                            onPress: () => {
+                              setAddDay(day);
+                              setActivitySheet(true);
+                            },
                           },
-                        },
-                        {
-                          text: 'Teaching period',
-                          onPress: () => {
-                            setAddDay(day);
-                            setSubjectSheet(true);
+                          {
+                            text: 'Teaching period',
+                            onPress: () => {
+                              setAddDay(day);
+                              setSubjectSheet(true);
+                            },
                           },
-                        },
-                      ]);
-                    }}
-                  />
+                        ]);
+                      }}
+                    />
+                  </View>
                 ) : null}
               </View>
             );
@@ -419,6 +421,7 @@ const styles = StyleSheet.create({
   section: { ...typography.sectionTitle, marginTop: spacing.md, marginBottom: spacing.sm },
   pickHint: { ...typography.label, color: colors.muted, marginBottom: spacing.sm },
   actions: { marginTop: spacing.md },
+  addWrap: { marginTop: spacing.md },
   timeRow: { flexDirection: 'row', gap: spacing.sm },
   timeField: { flex: 1 },
   timeLabel: { ...typography.label, color: colors.muted, marginBottom: spacing.xs },

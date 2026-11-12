@@ -4,13 +4,13 @@
  * adds a subject with its departments, classes and assigned teachers.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Alert, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import SelectSheet from '../components/SelectSheet';
 import { LoadingView, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import LabelledField from '../components/LabelledField';
-import { SecondaryButton } from './AdminHomeView';
+import { PrimaryButton, SecondaryButton } from './AdminHomeView';
 import { AcademicStructurePresenter } from '../../presenters/AcademicStructurePresenter';
 import { AcademicStructureModel, TeacherModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
@@ -18,10 +18,6 @@ import { colors, typography, spacing } from '../theme';
 const DEPARTMENTS = ['Core', 'JSS', 'Science', 'Humanities / Arts', 'Business / Commercial'].map(
   (d) => ({ label: d, value: d }),
 );
-const CLASSES = ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A', 'SSS1 A', 'SSS2 A', 'SSS3 A'].map(
-  (c) => ({ label: c, value: c }),
-);
-
 export default function AcademicStructureView({ navigation }) {
   const [presenter] = useState(() => new AcademicStructurePresenter(AcademicStructureModel, TeacherModel));
   const [state, setState] = useState(presenter.initialState);
@@ -34,6 +30,10 @@ export default function AcademicStructureView({ navigation }) {
   const [deptSheet, setDeptSheet] = useState(false);
   const [classSheet, setClassSheet] = useState(false);
   const [teacherSheet, setTeacherSheet] = useState(false);
+  const [newClassLevel, setNewClassLevel] = useState(null); // 'JSS1' … 'SSS3'
+  const [newClassSuffix, setNewClassSuffix] = useState('');
+  const [classLevelSheet, setClassLevelSheet] = useState(false);
+  const [renamingClass, setRenamingClass] = useState(null); // the class row being renamed
 
   // Class rules, both directions: Core spans JSS + SSS; JSS-only subjects are
   // junior; the named departments are senior-only. With nothing ticked the
@@ -78,6 +78,13 @@ export default function AcademicStructureView({ navigation }) {
       presenter.detach();
     };
   }, [presenter, navigation]);
+
+  // The LIVE class list drives the subject's class picker, so new or
+  // renamed classes appear at once.
+  const liveClasses = state.classes.map((c) => ({ label: c.classLabel, value: c.classLabel }));
+  const shownClasses = liveClasses.filter(
+    (c) => (allowJss || !c.value.startsWith('JSS')) && (allowSss || c.value.startsWith('JSS')),
+  );
 
   const classRows = state.classes.map((c) => ({
     id: c.id,
@@ -149,10 +156,87 @@ export default function AcademicStructureView({ navigation }) {
           <RecordList
             items={classRows}
             onPressItem={(row) =>
-              navigation.navigate('ClassWorkspace', { classId: row.raw.classLabel })
+              Alert.alert(row.raw.classLabel, 'What do you want to do?', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Rename class',
+                  onPress: () => {
+                    setRenamingClass(row.raw);
+                    setNewClassSuffix(row.raw.classLabel.split(' ').slice(1).join(' '));
+                  },
+                },
+                {
+                  text: 'Open workspace',
+                  onPress: () => navigation.navigate('ClassWorkspace', { classId: row.raw.classLabel }),
+                },
+              ])
             }
             emptyText="No classes yet."
           />
+
+          {renamingClass ? (
+            <View>
+              <Text style={styles.section}>Rename class — {renamingClass.classLabel}</Text>
+              <LabelledField
+                label="Level (fixed)"
+                displayValue={renamingClass.classLabel.split(' ')[0]}
+              />
+              <LabelledField
+                label="Suffix — letters only, e.g. A, B, Diamond, Gold"
+                placeholder="e.g. B"
+                value={newClassSuffix}
+                onChangeText={setNewClassSuffix}
+                autoCapitalize="words"
+              />
+              <PrimaryButton
+                label={state.savingClass ? 'Saving…' : 'Save the new name'}
+                disabled={state.savingClass || !newClassSuffix.trim()}
+                onPress={async () => {
+                  const suffix = newClassSuffix.trim();
+                  const level = renamingClass.classLabel.split(' ')[0];
+                  const ok = await presenter.renameClass(
+                    renamingClass.id,
+                    `${level} ${suffix}`,
+                  );
+                  if (ok) setRenamingClass(null);
+                }}
+              />
+              <View style={styles.secondaryWrap}>
+                <SecondaryButton label="Cancel" onPress={() => setRenamingClass(null)} />
+              </View>
+            </View>
+          ) : (
+            <View>
+              <Text style={styles.section}>Add a class</Text>
+              <LabelledField
+                label="Level"
+                placeholder="Tap to pick — JSS1 to SSS3"
+                displayValue={newClassLevel || ''}
+                onPress={() => setClassLevelSheet(true)}
+              />
+              <LabelledField
+                label="Suffix — letters only, e.g. A, B, Diamond, Gold"
+                placeholder="e.g. C"
+                value={newClassSuffix}
+                onChangeText={setNewClassSuffix}
+                autoCapitalize="words"
+              />
+              <PrimaryButton
+                label={state.savingClass ? 'Creating…' : 'Create the class'}
+                disabled={state.savingClass || !newClassLevel || !newClassSuffix.trim()}
+                onPress={async () => {
+                  const ok = await presenter.addClass({
+                    level: newClassLevel,
+                    suffix: newClassSuffix,
+                  });
+                  if (ok) {
+                    setNewClassLevel(null);
+                    setNewClassSuffix('');
+                  }
+                }}
+              />
+            </View>
+          )}
 
           <Text style={styles.section}>Subjects</Text>
           <RecordList
@@ -193,7 +277,7 @@ export default function AcademicStructureView({ navigation }) {
             placeholder="e.g. only the JSS classes — tap to tick"
             displayValue={
               subjectClasses.length
-                ? subjectClasses.length === CLASSES.filter((c) => allowJss || !c.value.startsWith('JSS')).filter((c) => allowSss || !c.value.startsWith('JSS')).length
+                ? subjectClasses.length === shownClasses.length
                   ? 'All shown classes'
                   : `${subjectClasses.length} classes selected`
                 : ''
@@ -241,11 +325,24 @@ export default function AcademicStructureView({ navigation }) {
                   ? 'Classes this subject is taught in — JSS only'
                   : 'Classes this subject is taught in'
             }
-            options={CLASSES.filter((c) => (allowJss || !c.value.startsWith('JSS')) && (allowSss || c.value.startsWith('JSS')))}
+            options={shownClasses}
             multiple
             selectedValues={subjectClasses}
             onToggle={toggleClass}
             onClose={() => setClassSheet(false)}
+          />
+          <SelectSheet
+            visible={classLevelSheet}
+            label="Which level is the new class?"
+            options={['JSS1', 'JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3'].map((l) => ({
+              label: l,
+              value: l,
+            }))}
+            onSelect={(value) => {
+              setNewClassLevel(value);
+              setClassLevelSheet(false);
+            }}
+            onClose={() => setClassLevelSheet(false)}
           />
           <SelectSheet
             visible={teacherSheet}
@@ -271,4 +368,5 @@ const styles = StyleSheet.create({
   error: { ...typography.label, color: '#a33a2a', marginBottom: spacing.sm },
   section: { ...typography.sectionTitle, marginTop: spacing.md, marginBottom: spacing.sm },
   cancelWrap: { marginTop: spacing.xs },
+  secondaryWrap: { marginTop: spacing.xs },
 });

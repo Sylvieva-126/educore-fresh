@@ -6,7 +6,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
-import { LoadingView, ErrorState } from '../components/FeedbackViews';
+import { LoadingView, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import { PrimaryButton } from './AdminHomeView';
 import { TeacherListPresenter } from '../../presenters/TeacherListPresenter';
 import { TeacherModel } from '../../models';
@@ -19,6 +19,10 @@ export default function TeacherListView({ navigation }) {
   const [state, setState] = useState(presenter.initialState);
   const [csvText, setCsvText] = useState('');
   const loadedOnce = useRef(false);
+
+  // Import problems pop up AND stay listed under the box — nothing wrong
+  // with the data can pass silently.
+  useActionErrorAlert(state.errorText);
 
   useEffect(() => {
     presenter.attach(setState, navigation);
@@ -108,13 +112,16 @@ export default function TeacherListView({ navigation }) {
               }}
             />
           </View>
+          {state.notice ? <Text style={styles.notice}>{state.notice}</Text> : null}
+          {state.errorText ? <Text style={styles.inlineError}>{state.errorText}</Text> : null}
           {state.importResult && state.importResult.failed.length ? (
             <RecordList
-              items={state.importResult.failed.map((f) => ({
-                id: `fail-${f.row}`,
+              items={state.importResult.failed.map((f, i) => ({
+                id: `fail-${f.row}-${i}`,
                 title: `Line ${f.row}: ${f.name}`,
                 meta: f.error,
                 status: 'Fix',
+                static: true,
               }))}
               emptyText=""
             />
@@ -138,6 +145,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   chipRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  notice: { ...typography.body, color: colors.primary, marginTop: spacing.md },
+  inlineError: { ...typography.body, color: '#a33a2a', marginTop: spacing.md },
   section: { ...typography.sectionTitle, marginTop: spacing.lg, marginBottom: spacing.sm },
   hint: { ...typography.label, color: colors.muted, marginBottom: spacing.sm },
   csvBox: { minHeight: 96, textAlignVertical: 'top' },

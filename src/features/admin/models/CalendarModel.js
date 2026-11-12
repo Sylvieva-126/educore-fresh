@@ -23,6 +23,16 @@ export const CalendarModel = {
     return api.get(endpoints.calendar.calendar);
   },
 
+  /** Add a key date ("Science fair", mid-term break…). */
+  async addKeyDate(body) {
+    return api.post(endpoints.calendar.events, null, body);
+  },
+
+  /** Add an activity to "Today at school". */
+  async addTodayItem(body) {
+    return api.post(endpoints.calendar.today, null, body);
+  },
+
   async drafts() {
     return api.get(endpoints.calendar.drafts);
   },

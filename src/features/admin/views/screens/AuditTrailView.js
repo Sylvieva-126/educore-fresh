@@ -3,7 +3,7 @@
  * every row shows the day, the actor, the action and the exact detail.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, Alert, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import { LoadingView, ErrorState } from '../components/FeedbackViews';
@@ -62,6 +62,14 @@ export default function AuditTrailView({ navigation }) {
               status: e.category,
               raw: e,
             }))}
+            // Tapping an entry pops up everything about it — the change, the
+            // day, who made it — instead of pretending to open another page.
+            onPressItem={(row) =>
+              Alert.alert(
+                row.raw.action,
+                `${row.raw.at} · ${row.raw.actor} · ${row.raw.category}\n\n${row.raw.detail}`,
+              )
+            }
             emptyText="Nothing recorded in this category yet."
           />
         </View>
