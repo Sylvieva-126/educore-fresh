@@ -23,6 +23,9 @@ export default function TeacherProfileView({ route, navigation }) {
   const teacherId = route.params?.teacherId;
   const loadedOnce = useRef(false);
 
+  // Status-change refusals pop up like every other guarded action.
+  useActionErrorAlert(state.errorText, 'Status change');
+
   useEffect(() => {
     presenter.attach(setState, navigation);
     if (teacherId) presenter.load(teacherId);
@@ -35,9 +38,6 @@ export default function TeacherProfileView({ route, navigation }) {
       presenter.detach();
     };
   }, [presenter, teacherId, navigation]);
-
-  // Status-change refusals pop up like every other guarded action.
-  useActionErrorAlert(state.errorText, 'Status change');
 
   const t = state.teacher;
 

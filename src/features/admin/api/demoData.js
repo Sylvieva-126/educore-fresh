@@ -32,7 +32,14 @@ import {
   timeError,
   minutesOf,
 } from './validation.js';
-import { cleanText, normalizeEmail, normalizePhone, calendarDateError, nextClassOf, canonicalPhone } from '../utils/validators.js';
+import {
+  cleanText,
+  normalizeEmail,
+  normalizePhone,
+  calendarDateError,
+  nextClassOf,
+  canonicalPhone,
+} from '../utils/validators.js';
 
 const SCHOOL_NAME = 'Greenfield Secondary School';
 const SESSION_LABEL = '2026/2027';
@@ -362,6 +369,21 @@ function buildClasses() {
       formTeacherName: form ? form.fullName : 'Not assigned yet',
       studentCount: STUDENTS.filter((s) => s.classLabel === name).length,
       subjectCount: SUBJECTS.filter((s) => s.classes.includes(name)).length,
+    };
+  });
+}
+
+/** Live class rows with FRESH counts, built from the LIVE CLASSES array —
+    created and renamed classes are included, so "Class not found" can never
+    happen for a class the office just made (workspace, roster, reports). */
+function liveClassRows() {
+  return CLASSES.map((cls) => {
+    const form = TEACHERS.find((t) => t.formClass === cls.classLabel && t.status === 'Active');
+    return {
+      ...cls,
+      formTeacherName: form ? form.fullName : 'Not assigned yet',
+      studentCount: STUDENTS.filter((s) => s.classLabel === cls.classLabel).length,
+      subjectCount: SUBJECTS.filter((s) => s.classes.includes(cls.classLabel)).length,
     };
   });
 }
@@ -891,7 +913,7 @@ const REPORT_CARDS = ['batch-1', 'batch-2'].map((batchId, i) => {
     return { subject: s.name, caScore, examScore, total, grade: band.grade, remark: band.remark };
   });
   const average = Math.round(rows.reduce((n, r) => n + r.total, 0) / rows.length);
-  const form = buildClasses().find((c) => c.classLabel === batch.classLabel);
+  const form = liveClassRows().find((c) => c.classLabel === batch.classLabel);
   return {
     id: `rep-${i + 1}`,
     batchId,
@@ -1256,7 +1278,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   // AD12 — class list and subject list. Classes can be created and renamed
   // (JSS/SSS level + any letter suffix); every guard reads the LIVE list.
   if (seg[0] === 'classes' && seg.length === 1) {
-    if (m === 'GET') return paginate(CLASSES, query.page);
+    if (m === 'GET') return paginate(liveClassRows(), query.page);
     if (m === 'POST') {
       const parsed = parseClassLabel(body && body.classLabel);
       if (!parsed) return { ok: false, error: classLabelFormatError() };
@@ -1325,7 +1347,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   }
   // AD13 — one class workspace: the class, its roster, its subjects
   if (seg[0] === 'classes' && seg.length === 3 && seg[2] === 'workspace' && m === 'GET') {
-    const cls = buildClasses().find((c) => c.classLabel === seg[1]);
+    const cls = liveClassRows().find((c) => c.classLabel === seg[1]);
     if (!cls) return { ok: false, error: 'Class not found.' };
     return {
       ok: true,
@@ -2545,7 +2567,12 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       const group = String(query.group);
       // A class picked in step 1 answers with WHO to send to inside it —
       // the office taps teachers, guardians, or both.
-      if (group.startsWith('class:') && !group.endsWith(':teachers') && !group.endsWith(':guardians') && !group.endsWith(':both')) {
+      if (
+        group.startsWith('class:') &&
+        !group.endsWith(':teachers') &&
+        !group.endsWith(':guardians') &&
+        !group.endsWith(':both')
+      ) {
         const cls = group.slice('class:'.length);
         return {
           items: [

@@ -190,9 +190,9 @@ export default function TeacherFormView({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  notice: { ...typography.body, color: colors.primary, marginBottom: spacing.sm },
   fieldError: { ...typography.label, color: '#a33a2a', marginTop: -spacing.xs, marginBottom: spacing.sm },
   fieldHint: { ...typography.label, color: colors.muted, marginTop: -spacing.xs, marginBottom: spacing.sm },
+  notice: { ...typography.body, color: colors.primary, marginBottom: spacing.sm },
   actionsWrap: { marginTop: spacing.md },
   provisioning: {
     borderWidth: 1,

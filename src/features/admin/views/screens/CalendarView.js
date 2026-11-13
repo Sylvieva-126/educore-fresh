@@ -163,15 +163,18 @@ export default function CalendarView({ navigation }) {
             emptyText="No published activities for today."
           />
           <Text style={styles.formLabel}>Add to today</Text>
-          {/* Same time entry as the timetable: a 24-hour HH:MM field. */}
+          {/* Same 24-hour HH:MM entry as the timetable. The number pad has no
+              colon key, so typing 0915 turns into 09:15 automatically. */}
           <TextInput
             style={styles.input}
-            placeholder="Time — 24-hour clock, e.g. 09:15"
+            placeholder="Time — 24-hour clock, e.g. 09:15 (or type 0915)"
             placeholderTextColor={colors.muted}
             value={todayTime}
-            onChangeText={(t) => setTodayTime(t.replace(/[^\d:]/g, '').slice(0, 5))}
+            onChangeText={(t) => {
+              const digits = t.replace(/\D/g, '').slice(0, 4);
+              setTodayTime(digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits);
+            }}
             keyboardType="number-pad"
-            maxLength={5}
           />
           {todayTime.trim() && timeError(todayTime) ? (
             <Text style={styles.fieldError}>{timeError(todayTime)}</Text>
@@ -208,6 +211,7 @@ const styles = StyleSheet.create({
   section: { ...typography.sectionTitle, marginTop: spacing.lg, marginBottom: spacing.sm },
   termLine: { ...typography.body, color: typography.body.color },
   formLabel: { ...typography.label, color: colors.muted, marginTop: spacing.md, marginBottom: spacing.xs },
+  fieldError: { ...typography.label, color: '#a33a2a', marginBottom: spacing.xs },
   input: {
     ...typography.input,
     backgroundColor: colors.white,
@@ -221,6 +225,5 @@ const styles = StyleSheet.create({
   },
   actionWrap: { marginBottom: spacing.sm },
   hint: { ...typography.label, color: colors.muted, marginTop: spacing.sm },
-  fieldError: { ...typography.label, color: '#a1422f', marginBottom: spacing.xs },
   notice: { ...typography.body, color: colors.primary, marginTop: spacing.md },
 });

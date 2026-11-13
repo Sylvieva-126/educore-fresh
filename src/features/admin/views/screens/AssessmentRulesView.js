@@ -46,6 +46,13 @@ export default function AssessmentRulesView({ navigation }) {
     );
   }
 
+  // Live range hints: the weights are percentages of the WHOLE term, so a
+  // single weight above 100 can never be right — say so as it is typed,
+  // not only when Save refuses it.
+  const over100 = (t) => t.trim() && Number(t) > 100;
+  const passOutOfRange = (t) => t.trim() && (Number(t) < 34 || Number(t) > 100);
+  const bandOutOfRange = (t) => t.trim() && (Number(t) < 0 || Number(t) > 100);
+
   const currentFields = () => {
     const digits = (t) => Number(String(t).replace(/[^0-9.]/g, '')) || 0;
     return {
@@ -127,6 +134,11 @@ export default function AssessmentRulesView({ navigation }) {
         </View>
       </View>
       <Text style={styles.hint}>The two weights must add up to exactly 100.</Text>
+          {over100(caText) || over100(examText) ? (
+            <Text style={styles.fieldError}>
+              A weight above 100 cannot be right — the CA and exam together are always 100%.
+            </Text>
+          ) : null}
 
       <Text style={styles.section}>Pass mark</Text>
       <TextInput
@@ -138,6 +150,9 @@ export default function AssessmentRulesView({ navigation }) {
         placeholder="40"
         placeholderTextColor={colors.muted}
       />
+      {passOutOfRange(passText) ? (
+        <Text style={styles.fieldError}>The pass mark must be between 34 and 100.</Text>
+      ) : null}
       <Text style={styles.hint}>Must be above 33 — the school&apos;s floor is 34%, and 100 at most.</Text>
 
       <Text style={styles.section}>Grade bands — the score each grade starts at</Text>
@@ -156,6 +171,11 @@ export default function AssessmentRulesView({ navigation }) {
           />
         </View>
       ))}
+      {policy.grades.some((g) => bandOutOfRange(bandTexts[g.grade] ?? '')) ? (
+        <Text style={styles.fieldError}>
+          Band scores are percentages — 0 to 100, each grade starting above the one below it.
+        </Text>
+      ) : null}
       <Text style={styles.hint}>A starts at 70, B below it, and so on — each band must start lower than the one above.</Text>
 
       <View style={styles.actions}>
@@ -184,6 +204,7 @@ export default function AssessmentRulesView({ navigation }) {
 
 const styles = StyleSheet.create({
   notice: { ...typography.body, color: colors.primary, marginBottom: spacing.sm },
+  fieldError: { ...typography.label, color: '#a33a2a', marginBottom: spacing.xs },
   lockedNote: { ...typography.label, color: colors.muted, marginBottom: spacing.sm },
   section: { ...typography.sectionTitle, marginTop: spacing.md, marginBottom: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm },

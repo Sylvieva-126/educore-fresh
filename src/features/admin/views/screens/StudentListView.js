@@ -18,8 +18,8 @@ import { StudentModel } from '../../models';
 import useClassOptions from '../components/useClassOptions';
 import { colors, typography, spacing } from '../theme';
 
-// The dropdown choices the handoff shows for AD02. Classes are LIVE now —
-// a class created in AD12 is filterable here right away.
+// The dropdown choices the handoff shows for AD02. Classes are LIVE — a
+// class created in AD12 is filterable here right away.
 const SESSIONS = ['2026/2027', '2025/2026'].map((s) => ({ label: s, value: s }));
 const DEPARTMENTS = ['Science', 'Humanities / Arts', 'Business / Commercial']
   .map((d) => ({ label: d, value: d }))

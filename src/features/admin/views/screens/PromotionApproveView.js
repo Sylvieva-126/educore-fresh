@@ -92,8 +92,7 @@ export default function PromotionApproveView({ navigation }) {
             items={preview.rows.map((r) => ({
               id: String(r.studentId),
               title: r.fullName,
-              // Every row names WHERE the student goes — "promote · moves to
-              // JSS2 A", "repeat · stays in JSS1 A" — same wording as the
+              // Every row names WHERE the student goes — same wording as the
               // preview screen.
               meta: `Average ${r.average}% — ${destinationLabel(preview.classLabel, r.decision)}`,
               status: r.decision,

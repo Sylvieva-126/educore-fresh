@@ -12,7 +12,7 @@ import { TeacherListPresenter } from '../../presenters/TeacherListPresenter';
 import { TeacherModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
 
-const STATUSES = ['all', 'Active', 'On Leave'];
+const STATUSES = ['all', 'Active', 'On Leave', 'Inactive'];
 
 export default function TeacherListView({ navigation }) {
   const [presenter] = useState(() => new TeacherListPresenter(TeacherModel));

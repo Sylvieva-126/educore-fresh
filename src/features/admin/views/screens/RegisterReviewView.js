@@ -28,7 +28,9 @@ export default function RegisterReviewView({ navigation, route }) {
   useEffect(() => {
     presenter.attach(setState, navigation);
     if (initialClassId) presenter.openClass(initialClassId);
-    else presenter.pickClass();
+    else {
+      presenter.pickClass();
+    }
     const unsubscribe = navigation.addListener('focus', () => {
       if (loadedOnce.current && state.register) presenter.openRegister(state.register.id);
       loadedOnce.current = true;

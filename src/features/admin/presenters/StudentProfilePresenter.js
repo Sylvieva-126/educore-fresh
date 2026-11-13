@@ -10,7 +10,7 @@ import { ApiError } from '../api/ApiError';
 function classMoveMessage(from, to) {
   const levelOf = (label) => {
     const m = /^(JSS|SSS)(\d)/.exec(String(label || '').toUpperCase());
-    return m ? m[1] === 'SSS' ? 3 + Number(m[2]) : Number(m[2]) : null;
+    return m ? (m[1] === 'SSS' ? 3 + Number(m[2]) : Number(m[2])) : null;
   };
   const a = levelOf(from);
   const b = levelOf(to);

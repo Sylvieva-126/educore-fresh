@@ -150,15 +150,16 @@ export function calendarDateError(value) {
   const isReal =
     date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
   if (month < 1 || month > 12 || !isReal) {
-    return `There is no ${month}-month day ${day} — ${text} is not a real date. Use YYYY-MM-DD, e.g. 2026-12-18.`;
+    return `${text} is not a real date — there is no day ${day} in month ${month}. Use YYYY-MM-DD, e.g. 2026-12-18.`;
   }
   return null;
 }
 
 /** One phone format everywhere: +234 followed by 10 digits, shown with one
     space ("+234 810 444 5050") — the same shape the staff list already uses.
-    A local 0-prefixed number (0810…) converts to its +234 form; digits-only
-    10-digit numbers get the +234 prefix. Returns the canonical string. */
+    A local 0-prefixed number (0810…) converts to its +234 form. Returns the
+    canonical string; numbers that are not valid Nigerian numbers are left
+    for the validator to refuse. */
 export function canonicalPhone(value) {
   const phone = normalizePhone(value);
   if (!phone) return '';
@@ -169,8 +170,6 @@ export function canonicalPhone(value) {
     body = body.slice(3);
   } else if (body.startsWith('0') && body.length === 11) {
     body = body.slice(1);
-  } else if (body.length === 10) {
-    // already the 10-digit national number without the trunk 0
   } else {
     return phone; // not a normalisable Nigerian number — leave it for the validator
   }

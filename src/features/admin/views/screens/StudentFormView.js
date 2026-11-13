@@ -16,14 +16,13 @@ import useClassOptions from '../components/useClassOptions';
 import { colors, typography, spacing } from '../theme';
 
 const GENDERS = ['Female', 'Male'].map((g) => ({ label: g, value: g }));
-// Live class list — a class created in AD12 is enrol-able here right away.
 const DEPARTMENTS = ['Science', 'Humanities / Arts', 'Business / Commercial'].map((d) => ({
   label: d,
   value: d,
 }));
 
 export default function StudentFormView({ route, navigation }) {
-  const CLASSES = useClassOptions();
+  const CLASSES = useClassOptions(); // live — a new class is enrol-able right away
   const [presenter] = useState(() => new StudentFormPresenter(StudentModel));
   const [state, setState] = useState(presenter.initialState);
   const [sheet, setSheet] = useState(null); // which SelectSheet is open

@@ -4,7 +4,7 @@
  * final confirm live in AD27.
  */
 import React, { useEffect, useState } from 'react';
-import { View, Text, Alert, StyleSheet } from 'react-native';
+import { View, Text, Modal, Pressable, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import SelectSheet from '../components/SelectSheet';
@@ -34,19 +34,13 @@ export default function PromotionPreviewView({ navigation }) {
   const preview = state.preview;
   const graduating = preview ? preview.classLabel.startsWith('SSS3') : false;
 
+  // Tapping a student card opens a FULL-DETAILS popup: who they are, their
+  // average, the decision they carry now, where that decision sends them —
+  // and the decision buttons live inside the popup too.
+  const [detailsRow, setDetailsRow] = useState(null);
+
   const onRowPress = (row) => {
-    Alert.alert(row.fullName, `Average ${row.average}% — currently marked to ${row.decision.toLowerCase()}.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Mark to repeat',
-        style: 'destructive',
-        onPress: () => presenter.setDecision(row.studentId, 'Repeat'),
-      },
-      {
-        text: graduating ? 'Mark to graduate' : 'Mark to promote',
-        onPress: () => presenter.setDecision(row.studentId, graduating ? 'Graduate' : 'Promote'),
-      },
-    ]);
+    setDetailsRow(row);
   };
 
   return (
@@ -133,10 +127,10 @@ export default function PromotionPreviewView({ navigation }) {
             <Text style={styles.hint}>This preview is confirmed — decisions are frozen.</Text>
           ) : (
             <Text style={styles.hint}>
-              Tap a student to change their decision, then Save decisions. Students only move
-              when this preview is confirmed in &quot;Approve promotion and
-              graduation&quot; — JSS1 becomes JSS2, JSS3 becomes SSS1, and SSS3
-              graduates.
+              Tap a student to see their full details and change their
+              decision, then Save decisions. Students only move when this
+              preview is confirmed in &quot;Approve promotion and graduation&quot;
+              — JSS1 becomes JSS2, JSS3 becomes SSS1, and SSS3 graduates.
             </Text>
           )}
 
@@ -165,11 +159,80 @@ export default function PromotionPreviewView({ navigation }) {
         }}
         onClose={() => setClassSheet(false)}
       />
+
+      {/* Full-details popup for one student in the preview. */}
+      <Modal visible={Boolean(detailsRow)} transparent animationType="fade" onRequestClose={() => setDetailsRow(null)}>
+        <View style={styles.detailsBackdrop}>
+          <Pressable style={styles.detailsBackdropTouch} onPress={() => setDetailsRow(null)} />
+          <View style={styles.detailsCard}>
+            <Text style={styles.detailsName}>{detailsRow ? detailsRow.fullName : ''}</Text>
+            <Text style={styles.detailsMeta}>
+              {preview ? `${preview.classLabel} · ${preview.sessionLabel}` : ''}
+            </Text>
+            <Text style={styles.detailsLine}>
+              Average: {detailsRow ? `${detailsRow.average}%` : '—'}
+            </Text>
+            <Text style={styles.detailsLine}>
+              Decision now: {detailsRow ? detailsRow.decision : '—'}
+            </Text>
+            <Text style={styles.detailsLine}>
+              {detailsRow && preview ? destinationLabel(preview.classLabel, detailsRow.decision) : ''}
+            </Text>
+            {preview && preview.status !== 'Confirmed' ? (
+              <View style={styles.detailsActions}>
+                <Pressable
+                  style={[styles.detailsButton, styles.detailsSecondary]}
+                  onPress={() => {
+                    presenter.setDecision(detailsRow.studentId, 'Repeat');
+                    setDetailsRow(null);
+                  }}
+                >
+                  <Text style={styles.detailsButtonText}>
+                    Repeat · stays in {preview ? preview.classLabel : ''}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={styles.detailsButton}
+                  onPress={() => {
+                    presenter.setDecision(detailsRow.studentId, graduating ? 'Graduate' : 'Promote');
+                    setDetailsRow(null);
+                  }}
+                >
+                  <Text style={[styles.detailsButtonText, { color: '#fff' }]}>
+                    {graduating
+                      ? 'Graduate · leaves with their result slip'
+                      : 'Promote · moves to the next class'}
+                  </Text>
+                </Pressable>
+                <Pressable style={styles.detailsClose} onPress={() => setDetailsRow(null)}>
+                  <Text style={styles.detailsCloseText}>Close</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable style={styles.detailsClose} onPress={() => setDetailsRow(null)}>
+                <Text style={styles.detailsCloseText}>Close</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </Modal>
     </AdminScaffold>
   );
 }
 
 const styles = StyleSheet.create({
+  detailsBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center', padding: spacing.md },
+  detailsBackdropTouch: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 },
+  detailsCard: { backgroundColor: colors.white, borderRadius: 14, borderWidth: 2, borderColor: colors.primary, padding: spacing.md, width: '100%', maxWidth: 480 },
+  detailsName: { ...typography.title, marginBottom: 2 },
+  detailsMeta: { ...typography.label, color: colors.muted, marginBottom: spacing.sm },
+  detailsLine: { ...typography.body, marginBottom: 2 },
+  detailsActions: { marginTop: spacing.md, gap: spacing.sm },
+  detailsButton: { minHeight: 44, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  detailsSecondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  detailsButtonText: { ...typography.body, fontWeight: '700', color: colors.text, textAlign: 'center' },
+  detailsClose: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  detailsCloseText: { ...typography.label, color: colors.muted },
   notice: { ...typography.body, color: colors.primary, marginBottom: spacing.sm },
   hint: { ...typography.label, color: colors.muted, marginTop: spacing.sm },
   section: { ...typography.sectionTitle, marginTop: spacing.md, marginBottom: spacing.sm },

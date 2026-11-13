@@ -90,7 +90,7 @@ function MenuScreen({ adCodes }) {
 function AcademicsMenu() {
   return (
     <MenuScreen
-      adCodes={['AD11', 'AD12', 'AD13', 'AD14', 'AD15', 'AD16', 'AD17', 'AD18', 'AD19', 'AD20']}
+      adCodes={['AD11', 'AD12', 'AD13', 'AD14', 'AD15', 'AD16', 'AD17', 'AD18', 'AD19', 'AD20', 'AD26']}
     />
   );
 }
@@ -111,7 +111,6 @@ function MoreMenu() {
         'AD07',
         'AD08',
         'AD10',
-        'AD26',
         'AD27',
         'AD28',
         'AD29',

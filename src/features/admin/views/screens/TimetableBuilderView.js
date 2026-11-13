@@ -37,7 +37,9 @@ export default function TimetableBuilderView({ navigation, route }) {
   useEffect(() => {
     presenter.attach(setState, navigation);
     if (initialClassId) presenter.openForClass(initialClassId);
-    else presenter.pickClass();
+    else {
+      presenter.pickClass();
+    }
     const unsubscribe = navigation.addListener('focus', () => {
       if (loadedOnce.current && state.draft) presenter.openForClass(state.draft.classLabel);
       loadedOnce.current = true;

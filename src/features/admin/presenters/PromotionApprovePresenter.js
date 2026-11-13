@@ -105,8 +105,7 @@ export class PromotionApprovePresenter {
     try {
       const result = await this.model.confirm(preview.id);
       // The notice names WHERE each group went, e.g. "5 promoted to JSS2 A ·
-      // 3 repeat in JSS1 A · 1 graduates" — the summary alone ("promote 5")
-      // left the office guessing what actually happened.
+      // 3 repeat in JSS1 A" — the summary alone left the office guessing.
       const cls = result.preview.classLabel;
       const dest = nextClassOf(cls);
       this._setState({
