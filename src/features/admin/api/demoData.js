@@ -28,11 +28,11 @@
 
 import {
   emailError,
-  nigerianPhoneDigits,
   phoneError,
   timeError,
   minutesOf,
 } from './validation.js';
+import { cleanText, normalizeEmail, normalizePhone, calendarDateError, nextClassOf, canonicalPhone } from '../utils/validators.js';
 
 const SCHOOL_NAME = 'Greenfield Secondary School';
 const SESSION_LABEL = '2026/2027';
@@ -838,7 +838,6 @@ const CONVERSATIONS = [
 
 /* ── The demo router the API client calls in demo mode ──────────────── */
 
-import { cleanText, normalizeEmail, normalizePhone } from '../utils/validators.js';
 
 function paginate(items, page = 1, perPage = 20) {
   const p = Math.max(1, Number(page) || 1);
@@ -1026,7 +1025,10 @@ function nextStaffNumber() {
     do (open their profile instead of registering a twin). */
 function teacherDuplicates(b, excludeId) {
   const emailKey = String(b.email || '').trim().toLowerCase();
-  const phoneKey = nigerianPhoneDigits(b.phone);
+  // Phones compare in the ONE canonical +234 form, so "0810 444 5050" and
+  // "+234 810 444 5050" are the same number — format differences can no
+  // longer sneak a duplicate past this check.
+  const phoneKey = canonicalPhone(b.phone);
   const emailTwin = emailKey
     ? TEACHERS.find(
         (t) => t.id !== excludeId && t.email && String(t.email).trim().toLowerCase() === emailKey,
@@ -1034,7 +1036,7 @@ function teacherDuplicates(b, excludeId) {
     : null;
   const phoneTwin = phoneKey
     ? TEACHERS.find(
-        (t) => t.id !== excludeId && t.phone && nigerianPhoneDigits(t.phone) === phoneKey,
+        (t) => t.id !== excludeId && t.phone && canonicalPhone(t.phone) === phoneKey,
       )
     : null;
   if (emailTwin && phoneTwin) {
@@ -1217,8 +1219,25 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     if (seg[2] === 'fee-status' && m === 'GET') return feeStatusFor(seg[1]);
     if (seg[2] === 'class-moves' && student) {
       if (body && body.targetClassId) {
-        student.classLabel = body.targetClassId;
-        student.department = student.classLabel.startsWith('JSS') ? null : student.department;
+        const target = cleanText(body.targetClassId);
+        // Only classes that actually exist — a made-up label is refused.
+        if (!liveClassNames().includes(target)) {
+          return { ok: false, error: `${target || 'That class'} is not a class in this school — pick from the list.` };
+        }
+        const from = student.classLabel;
+        student.classLabel = target;
+        student.department = target.startsWith('JSS') ? null : student.department;
+        if (from !== target) {
+          AUDIT_LOG.unshift({
+            id: `aud-${Date.now()}`,
+            at: todayLabel(),
+            actor: 'Admin (you)',
+            category: 'Records',
+            action: 'Moved a student to another class',
+            detail: `${student.fullName}: ${from} → ${target}`,
+          });
+        }
+        return { ok: true, from, to: target };
       }
       return { ok: true };
     }
@@ -1432,7 +1451,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       id: `tch-${Date.now()}`,
       fullName,
       staffNumber: cleanText(b.staffNumber) || nextStaffNumber(),
-      phone: cleanText(b.phone),
+      phone: canonicalPhone(b.phone),
       email: cleanText(b.email),
       status: 'Active',
       formClass,
@@ -1471,7 +1490,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
         id: `tch-${Date.now()}-${i}`,
         fullName: cleanText(row.fullName),
         staffNumber: nextStaffNumber(),
-        phone: cleanText(row.phone),
+        phone: canonicalPhone(row.phone),
         email: cleanText(row.email),
         subjects: (row.subjects || []).filter(Boolean),
         formClass: row.formClass && liveClassNames().includes(row.formClass) ? row.formClass : null,
@@ -1506,15 +1525,32 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       if (emailProblem) return { ok: false, error: emailProblem };
       const phoneProblem = phoneError(b.phone);
       if (phoneProblem) return { ok: false, error: phoneProblem };
+      // Status changes (Active / On Leave / Inactive) land like every other
+      // edit — validated and audited.
+      if (b.status !== undefined && !['Active', 'On Leave', 'Inactive'].includes(b.status)) {
+        return { ok: false, error: 'Status must be Active, On Leave or Inactive.' };
+      }
       // Another teacher may already own that email or number.
       const duplicate = teacherDuplicates(b, teacher.id);
       if (duplicate) return { ok: false, error: duplicate };
       if (b.fullName !== undefined) teacher.fullName = cleanText(b.fullName);
       if (b.staffNumber !== undefined) teacher.staffNumber = cleanText(b.staffNumber);
-      if (b.phone !== undefined) teacher.phone = cleanText(b.phone);
+      if (b.phone !== undefined) teacher.phone = canonicalPhone(b.phone);
       if (b.email !== undefined) teacher.email = cleanText(b.email);
       if (b.formClass !== undefined) {
         teacher.formClass = b.formClass && liveClassNames().includes(b.formClass) ? b.formClass : null;
+      }
+      if (b.status !== undefined && teacher.status !== b.status) {
+        const prevStatus = teacher.status;
+        teacher.status = b.status;
+        AUDIT_LOG.unshift({
+          id: `aud-${Date.now()}`,
+          at: todayLabel(),
+          actor: 'Admin (you)',
+          category: 'Staff',
+          action: 'Changed a teacher status',
+          detail: `${teacher.fullName}: ${prevStatus} → ${b.status}`,
+        });
       }
       return { ok: true, teacher };
     }
@@ -1910,21 +1946,26 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   if (seg[0] === 'finance' && seg[1] === 'fee-plans' && seg.length === 2) {
     if (m === 'GET') return paginate(FEE_PLANS, query.page);
     if (m === 'POST') {
-      const classLabel = ((body && body.classLabel) || '').trim();
-      const title = ((body && body.title) || '').trim();
+      const classLabel = cleanText(body && body.classLabel);
+      const title = cleanText(body && body.title);
       const amount = Number(body && body.amount);
       if (!classLabel) return { ok: false, error: 'Choose the class this plan bills.' };
       if (!title) return { ok: false, error: 'Name the plan, e.g. First Term tuition.' };
       if (!amount || amount <= 0) return { ok: false, error: 'Enter the amount in naira.' };
+      // Same class + same name (case and extra spaces ignored) is a duplicate
+      // — refused EVERY time, first or fourth, so two drafts can never drift.
       const dup = FEE_PLANS.find(
         (p) =>
-          p.classLabel.toLowerCase() === classLabel.toLowerCase() &&
-          p.title.toLowerCase() === title.toLowerCase(),
+          cleanText(p.classLabel).toLowerCase() === classLabel.toLowerCase() &&
+          cleanText(p.title).toLowerCase() === title.toLowerCase(),
       );
       if (dup) {
         return {
           ok: false,
-          error: `${classLabel} already has "${dup.title}" — issue that plan instead of creating it again.`,
+          error:
+            `${classLabel} already has "${dup.title}" (${dup.amountLabel}, ` +
+            `${dup.status === 'Issued' ? 'bills already issued' : 'draft'}) — ` +
+            'issue or edit THAT plan instead of creating it again.',
         };
       }
       const plan = {
@@ -1998,6 +2039,23 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   if (invoice && seg[3] === 'manual-payments' && m === 'POST') {
     const amount = Number(body && body.amount);
     if (!amount || amount <= 0) return { ok: false, error: 'Enter an amount in naira.' };
+    // Overpayments are refused here, in plain words: the office should never
+    // see a silent partial apply or an "API" sentence.
+    const balance = invoice.amount - invoice.paid;
+    if (balance <= 0) {
+      return {
+        ok: false,
+        error: `Bill ${invoice.number} for ${invoice.studentName} is already fully paid — there is nothing left to record. Check the payments list below.`,
+      };
+    }
+    if (amount > balance) {
+      return {
+        ok: false,
+        error:
+          `That payment is ${naira(amount - balance)} more than what ${invoice.studentName} owes. ` +
+          `Bill ${invoice.number} still has ${naira(balance)} outstanding — enter ${naira(balance)} or less.`,
+      };
+    }
     const result = applyInvoicePayment(invoice, amount, (body && body.method) || 'Cash', body && body.reference);
     return { ok: true, applied: result.applied, balanceAfter: invoice.amount - invoice.paid };
   }
@@ -2140,6 +2198,19 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       return { ok: false, error: `${undecided.length} student(s) still need a decision before confirming.` };
     }
     preview.status = 'Confirmed';
+    // Confirming ACTS on every student: promote changes their class (so the
+    // student list, profile, fees and timetable all show the new class at
+    // once), graduate sets their status, repeat leaves them where they are.
+    preview.rows.forEach((r) => {
+      const student = STUDENTS.find((st) => String(st.id) === String(r.studentId));
+      if (!student) return;
+      if (r.decision === 'Promote') {
+        student.classLabel = nextClassOf(student.classLabel);
+        student.department = student.classLabel.startsWith('JSS') ? null : student.department;
+      } else if (r.decision === 'Graduate') {
+        student.status = 'Graduated';
+      }
+    });
     AUDIT_LOG.unshift({
       id: `aud-${Date.now()}`,
       at: todayLabel(),
@@ -2369,8 +2440,11 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   if (seg[0] === 'calendar-events' && seg.length === 1 && m === 'POST') {
     const date = cleanText(body && body.date);
     const title = cleanText(body && body.title);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return { ok: false, error: 'Give the date as YYYY-MM-DD — e.g. 2026-12-18.' };
+    // Real calendar dates only — 2026-09-56 or 2026-02-31 are refused here
+    // exactly as the form refuses them (one shared validator).
+    const dateProblem = calendarDateError(date);
+    if (dateProblem) {
+      return { ok: false, error: dateProblem };
     }
     if (!title) {
       return { ok: false, error: 'Give the key date a title — e.g. "Science fair".' };
@@ -2465,30 +2539,55 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
 
   // AD29/AD30 — messages inbox and threads
   if (seg[0] === 'conversation-recipients' && m === 'GET') {
+    // Step 2 of "new message": the people (or class audience) inside the
+    // group picked in step 1.
     if (query.group) {
-      // Two-step "new message": group first, then the people inside it.
       const group = String(query.group);
-      if (group === 'All teachers') {
+      // A class picked in step 1 answers with WHO to send to inside it —
+      // the office taps teachers, guardians, or both.
+      if (group.startsWith('class:') && !group.endsWith(':teachers') && !group.endsWith(':guardians') && !group.endsWith(':both')) {
+        const cls = group.slice('class:'.length);
         return {
-          items: [...new Set(MARK_PACKAGES.map((p) => p.teacherName))].map((t) => ({
-            label: t,
-            value: t,
-          })),
+          items: [
+            { label: `All teachers in ${cls}`, value: `class:${cls}:teachers` },
+            { label: `All guardians in ${cls}`, value: `class:${cls}:guardians` },
+            { label: `Teachers AND guardians in ${cls}`, value: `class:${cls}:both` },
+          ],
         };
       }
-      const classGroup = group.endsWith(' guardians') ? group.slice(0, -' guardians'.length) : null;
-      const guardians = STUDENTS.filter(
-        (s) => group === 'All guardians' || (classGroup && s.classLabel === classGroup),
-      );
-      return {
-        items: guardians.map((s) => ({
+      // The individual pickers: teachers, guardians, or both in one list.
+      const teacherItems = [...new Set(TEACHERS.map((t) => t.fullName))].map((name) => {
+        const t = TEACHERS.find((x) => x.fullName === name);
+        return {
+          label: `${name} · Teacher${t && t.formClass ? ` (${t.formClass} form teacher)` : ''}`,
+          value: `teacher:${name}`,
+        };
+      });
+      const guardianItems = [];
+      const seenGuardians = new Set();
+      STUDENTS.forEach((s) => {
+        if (!s.guardianName || seenGuardians.has(s.guardianName)) return;
+        seenGuardians.add(s.guardianName);
+        guardianItems.push({
           label: `${s.guardianName} · guardian of ${s.fullName} (${s.classLabel})`,
-          value: s.guardianName,
-        })),
-      };
+          value: `guardian:${s.guardianName}`,
+        });
+      });
+      if (group === 'group:all-teachers') return { items: teacherItems };
+      if (group === 'group:all-guardians') return { items: guardianItems };
+      if (group === 'individuals') return { items: [...teacherItems, ...guardianItems] };
+      return { items: [] };
     }
+    // Step 1: every audience the office can message — the two broadcasts,
+    // the individual picker, and EVERY class from the live class list
+    // (created classes appear here immediately).
     return {
-      items: ['All guardians', 'All teachers', 'SSS1 A guardians', 'JSS2 A guardians'],
+      items: [
+        { label: 'All guardians', value: 'group:all-guardians' },
+        { label: 'All teachers', value: 'group:all-teachers' },
+        { label: 'Individual teachers & guardians…', value: 'individuals' },
+        ...liveClassNames().map((c) => ({ label: c, value: `class:${c}` })),
+      ],
     };
   }
   if (seg[0] === 'conversations' && seg.length === 1) {

@@ -12,6 +12,7 @@ import { LoadingView, ErrorState, useActionErrorAlert } from '../components/Feed
 import { PrimaryButton, SecondaryButton } from './AdminHomeView';
 import { PromotionApprovePresenter } from '../../presenters/PromotionApprovePresenter';
 import { PromotionModel } from '../../models';
+import { destinationLabel } from '../../utils/validators';
 import { colors, typography, spacing } from '../theme';
 
 export default function PromotionApproveView({ navigation }) {
@@ -22,7 +23,6 @@ export default function PromotionApproveView({ navigation }) {
     presenter.attach(setState, navigation);
     presenter.load();
     return () => presenter.detach();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presenter, navigation]);
 
   useActionErrorAlert(state.errorText);
@@ -92,7 +92,10 @@ export default function PromotionApproveView({ navigation }) {
             items={preview.rows.map((r) => ({
               id: String(r.studentId),
               title: r.fullName,
-              meta: `Average ${r.average}% — ${r.decision}`,
+              // Every row names WHERE the student goes — "promote · moves to
+              // JSS2 A", "repeat · stays in JSS1 A" — same wording as the
+              // preview screen.
+              meta: `Average ${r.average}% — ${destinationLabel(preview.classLabel, r.decision)}`,
               status: r.decision,
               raw: r,
             }))}

@@ -16,6 +16,7 @@ export class TeacherProfilePresenter {
       teacher: null,
       notice: null,
       errorText: null,
+      busy: false, // status change in flight
     };
     this.state = this.initialState;
   }
@@ -59,6 +60,32 @@ export class TeacherProfilePresenter {
 
   onRetry() {
     return this.load(this._teacherId);
+  }
+
+  /** Change the teacher's status (Active / On Leave / Inactive) — the same
+      control the office has for students and admins. The list, timetable
+      and form-class duties all read the fresh status afterwards. */
+  async changeStatus(next) {
+    if (!this._teacherId || this.state.busy) return;
+    this._setState({ busy: true, notice: null, errorText: null });
+    try {
+      await this.model.update(this._teacherId, { status: next });
+      this._setState({
+        busy: false,
+        notice:
+          next === 'Active'
+            ? 'Status set to Active — they are on duty and their app access works.'
+            : next === 'On Leave'
+              ? 'Status set to On Leave — their duties are flagged for reassignment.'
+              : 'Status set to Inactive — their subjects and form class are freed up.',
+      });
+      await this.load(this._teacherId);
+    } catch (error) {
+      this._setState({
+        busy: false,
+        errorText: error instanceof ApiError ? error.message : 'The status was not changed.',
+      });
+    }
   }
 }
 

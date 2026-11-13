@@ -7,15 +7,19 @@ import { View, Text, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import StatusBadge from '../components/StatusBadge';
-import { LoadingView, EmptyState, ErrorState } from '../components/FeedbackViews';
+import SelectSheet from '../components/SelectSheet';
+import { LoadingView, EmptyState, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import { SecondaryButton } from './AdminHomeView';
 import { TeacherProfilePresenter } from '../../presenters/TeacherProfilePresenter';
 import { TeacherModel } from '../../models';
 import { colors, typography, spacing, statusTone } from '../theme';
 
+const TEACHER_STATUSES = ['Active', 'On Leave', 'Inactive'].map((s) => ({ label: s, value: s }));
+
 export default function TeacherProfileView({ route, navigation }) {
   const [presenter] = useState(() => new TeacherProfilePresenter(TeacherModel));
   const [state, setState] = useState(presenter.initialState);
+  const [statusSheet, setStatusSheet] = useState(false);
   const teacherId = route.params?.teacherId;
   const loadedOnce = useRef(false);
 
@@ -30,7 +34,10 @@ export default function TeacherProfileView({ route, navigation }) {
       unsubscribe?.remove?.();
       presenter.detach();
     };
-  }, [presenter, teacherId]);
+  }, [presenter, teacherId, navigation]);
+
+  // Status-change refusals pop up like every other guarded action.
+  useActionErrorAlert(state.errorText, 'Status change');
 
   const t = state.teacher;
 
@@ -85,6 +92,18 @@ export default function TeacherProfileView({ route, navigation }) {
             emptyText="No subjects assigned yet."
           />
 
+          <Text style={styles.section}>Status</Text>
+          {state.notice ? <Text style={styles.notice}>{state.notice}</Text> : null}
+          <SecondaryButton
+            label={
+              state.busy
+                ? 'Saving…'
+                : `Change status — now ${t.status === 'On Leave' ? 'On Leave' : t.status || 'Active'}`
+            }
+            disabled={state.busy}
+            onPress={() => setStatusSheet(true)}
+          />
+
           <View style={styles.editWrap}>
             <SecondaryButton
               label="Edit profile, subjects and form class"
@@ -93,6 +112,18 @@ export default function TeacherProfileView({ route, navigation }) {
           </View>
         </View>
       ) : null}
+
+      <SelectSheet
+        visible={statusSheet}
+        label="Teacher status — the list and timetable follow at once"
+        options={TEACHER_STATUSES}
+        value={t ? t.status : null}
+        onSelect={(v) => {
+          setStatusSheet(false);
+          if (v && t && v !== t.status) presenter.changeStatus(v);
+        }}
+        onClose={() => setStatusSheet(false)}
+      />
     </AdminScaffold>
   );
 }
@@ -102,6 +133,7 @@ const styles = StyleSheet.create({
   meta: { ...typography.label, color: colors.muted },
   fact: { ...typography.body, marginTop: spacing.sm },
   line: { ...typography.body },
+  notice: { ...typography.label, color: colors.primary, marginBottom: spacing.sm },
   section: { ...typography.sectionTitle, marginTop: spacing.lg, marginBottom: spacing.sm },
   editWrap: { marginTop: spacing.md },
 });

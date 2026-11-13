@@ -44,7 +44,6 @@ export default function AdminSettingsView({ navigation }) {
     presenter.attach(setState, navigation);
     presenter.load();
     return () => presenter.detach();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presenter, navigation]);
 
   // Prefill the school-details fields once the settings arrive.

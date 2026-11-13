@@ -16,7 +16,7 @@ export default function ClassWorkspaceView({ navigation, route }) {
   const [presenter] = useState(() => new ClassWorkspacePresenter(AcademicStructureModel));
   const [state, setState] = useState(presenter.initialState);
   const loadedOnce = useRef(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(!route.params?.classId); // no class in the route → open the picker straight away
   const initialClassId = route.params && route.params.classId;
 
   useEffect(() => {
@@ -25,7 +25,6 @@ export default function ClassWorkspaceView({ navigation, route }) {
       presenter.load(initialClassId);
     } else {
       presenter.pickClass();
-      setPickerOpen(true);
     }
     const unsubscribe = navigation.addListener('focus', () => {
       if (loadedOnce.current && state.cls) presenter.load(state.cls.classLabel, { showLoading: false });

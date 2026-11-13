@@ -83,8 +83,22 @@ export class InvoiceDetailPresenter {
       this._setState({ errorText: 'Enter the amount in naira — numbers only.' });
       return;
     }
-    if (value > this.balanceNumber(this.state.invoice)) {
-      this._setState({ errorText: 'That is more than the balance — the API rejects overpayments.' });
+    const balance = this.balanceNumber(this.state.invoice);
+    if (balance <= 0) {
+      this._setState({
+        errorText:
+          'This bill is already fully paid — there is nothing left to record. The payments list below shows what came in.',
+      });
+      return;
+    }
+    if (value > balance) {
+      const name = (this.state.invoice && this.state.invoice.studentName) || 'the student';
+      this._setState({
+        errorText:
+          `That payment is ₦${(value - balance).toLocaleString('en-NG')} more than what ` +
+          `${name} owes. This bill still has ₦${balance.toLocaleString('en-NG')} outstanding — ` +
+          `enter ₦${balance.toLocaleString('en-NG')} or less. For anything extra, record it on a new bill or raise a refund.`,
+      });
       return;
     }
     this._setState({ saving: true, errorText: null, notice: null });

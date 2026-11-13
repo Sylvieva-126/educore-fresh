@@ -12,6 +12,7 @@ import LabelledField from '../components/LabelledField';
 import { PrimaryButton, SecondaryButton } from './AdminHomeView';
 import { TeacherFormPresenter } from '../../presenters/TeacherFormPresenter';
 import { TeacherModel, AcademicStructureModel } from '../../models';
+import { phoneError } from '../../api/validation';
 import { colors, typography, spacing } from '../theme';
 
 export default function TeacherFormView({ navigation, route }) {
@@ -32,7 +33,6 @@ export default function TeacherFormView({ navigation, route }) {
     presenter.attach(setState, navigation);
     presenter.start(teacherId);
     return () => presenter.detach();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presenter, navigation, teacherId]);
 
   // Prefill once when the teacher record arrives (edit mode).
@@ -112,6 +112,14 @@ export default function TeacherFormView({ navigation, route }) {
             textContentType="telephoneNumber"
             autoComplete="tel"
           />
+          {/* Live check: letters AND a too-short/too-long number both show
+              their reason here, not only when Save refuses them. */}
+          {phone.trim() && phoneError(phone) ? (
+            <Text style={styles.fieldError}>{phoneError(phone)}</Text>
+          ) : null}
+          <Text style={styles.fieldHint}>
+            Saved in one format for everyone: +234 followed by 10 digits.
+          </Text>
           <LabelledField
             label="Email"
             placeholder="e.g. chidi.nwachukwu@gmail.com — any domain works"
@@ -183,6 +191,8 @@ export default function TeacherFormView({ navigation, route }) {
 
 const styles = StyleSheet.create({
   notice: { ...typography.body, color: colors.primary, marginBottom: spacing.sm },
+  fieldError: { ...typography.label, color: '#a33a2a', marginTop: -spacing.xs, marginBottom: spacing.sm },
+  fieldHint: { ...typography.label, color: colors.muted, marginTop: -spacing.xs, marginBottom: spacing.sm },
   actionsWrap: { marginTop: spacing.md },
   provisioning: {
     borderWidth: 1,

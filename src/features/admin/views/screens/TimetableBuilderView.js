@@ -24,7 +24,7 @@ export default function TimetableBuilderView({ navigation, route }) {
   const [presenter] = useState(() => new TimetableBuilderPresenter(TimetableModel, AcademicStructureModel));
   const [state, setState] = useState(presenter.initialState);
   const loadedOnce = useRef(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(!route.params?.classId); // no class in the route → open the picker straight away
   const [pendingSlot, setPendingSlot] = useState(null); // { day, period } — an existing period
   const [addDay, setAddDay] = useState(null); // a day to append a brand-new period to
   const [pendingSubject, setPendingSubject] = useState(null);
@@ -37,10 +37,7 @@ export default function TimetableBuilderView({ navigation, route }) {
   useEffect(() => {
     presenter.attach(setState, navigation);
     if (initialClassId) presenter.openForClass(initialClassId);
-    else {
-      presenter.pickClass();
-      setPickerOpen(true);
-    }
+    else presenter.pickClass();
     const unsubscribe = navigation.addListener('focus', () => {
       if (loadedOnce.current && state.draft) presenter.openForClass(state.draft.classLabel);
       loadedOnce.current = true;
@@ -451,5 +448,4 @@ const styles = StyleSheet.create({
     ...typography.body,
     marginBottom: spacing.sm,
   },
-  modalActions: { flexDirection: 'row', gap: spacing.sm },
 });

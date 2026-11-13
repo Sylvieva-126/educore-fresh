@@ -31,27 +31,35 @@ export default function AssessmentRulesView({ navigation }) {
 
   const policy = state.policy;
 
-  useEffect(() => {
-    if (policy) {
-      setCaText(String(policy.caWeight));
-      setExamText(String(policy.examWeight));
-      setPassText(String(policy.passMark));
-      setBandTexts(
-        Object.fromEntries(policy.grades.map((g) => [g.grade, String(g.minScore)])),
-      );
-    }
-  }, [policy]);
+  // Adjust the typed fields when a different policy arrives (load / save /
+  // lock) — done during render, not in an effect, so there is no cascading
+  // render pass. Failed saves and locks keep the same policy object, so the
+  // values the admin typed stay on screen to be fixed.
+  const [syncedPolicy, setSyncedPolicy] = useState(null);
+  if (policy && policy !== syncedPolicy) {
+    setSyncedPolicy(policy);
+    setCaText(String(policy.caWeight));
+    setExamText(String(policy.examWeight));
+    setPassText(String(policy.passMark));
+    setBandTexts(
+      Object.fromEntries(policy.grades.map((g) => [g.grade, String(g.minScore)])),
+    );
+  }
 
-  const onSave = () => {
+  const currentFields = () => {
     const digits = (t) => Number(String(t).replace(/[^0-9.]/g, '')) || 0;
-    presenter.save({
+    return {
       caWeight: digits(caText),
       examWeight: digits(examText),
       passMark: digits(passText),
       grades: policy
         ? policy.grades.map((g) => ({ ...g, minScore: digits(bandTexts[g.grade]) }))
         : undefined,
-    });
+    };
+  };
+
+  const onSave = () => {
+    presenter.save(currentFields());
   };
 
   if (state.status === 'loading') {
@@ -130,7 +138,7 @@ export default function AssessmentRulesView({ navigation }) {
         placeholder="40"
         placeholderTextColor={colors.muted}
       />
-      <Text style={styles.hint}>Must be above 33 — the school's floor is 34%, and 100 at most.</Text>
+      <Text style={styles.hint}>Must be above 33 — the school&apos;s floor is 34%, and 100 at most.</Text>
 
       <Text style={styles.section}>Grade bands — the score each grade starts at</Text>
       {policy.grades.map((g) => (
@@ -160,7 +168,7 @@ export default function AssessmentRulesView({ navigation }) {
           <SecondaryButton
             label={state.saving ? 'Working…' : 'Lock for the term'}
             disabled={state.saving}
-            onPress={() => presenter.lock()}
+            onPress={() => presenter.lock(currentFields())}
           />
         ) : (
           <SecondaryButton

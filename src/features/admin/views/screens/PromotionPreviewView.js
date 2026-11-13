@@ -14,24 +14,8 @@ import LabelledField from '../components/LabelledField';
 import { PrimaryButton, SecondaryButton } from './AdminHomeView';
 import { PromotionPreviewPresenter } from '../../presenters/PromotionPreviewPresenter';
 import { PromotionModel, AcademicStructureModel } from '../../models';
+import { destinationLabel } from '../../utils/validators';
 import { colors, typography, spacing } from '../theme';
-
-/** Where a decision sends the student: JSS3 A promotes into SSS1 A (same
-    suffix), SSS3 graduates, repeating stays in the same class. */
-function nextClassOf(classLabel) {
-  const text = String(classLabel || '');
-  const m = /^(JSS|SSS)(\d)/.exec(text.toUpperCase());
-  if (!m) return 'the next class';
-  if (m[1] === 'SSS' && m[2] === '3') return 'Graduates';
-  const suffix = text.split(' ').slice(1).join(' ') || 'A';
-  return `${m[1]}${Number(m[2]) + 1} ${suffix}`;
-}
-
-function destinationLabel(classLabel, decision) {
-  if (decision === 'Promote') return `promote · moves to ${nextClassOf(classLabel)}`;
-  if (decision === 'Repeat') return `repeat · stays in ${classLabel}`;
-  return 'graduate · leaves with their result slip';
-}
 
 export default function PromotionPreviewView({ navigation }) {
   const [presenter] = useState(() => new PromotionPreviewPresenter(PromotionModel, AcademicStructureModel));
@@ -43,7 +27,6 @@ export default function PromotionPreviewView({ navigation }) {
     presenter.attach(setState, navigation);
     presenter.load();
     return () => presenter.detach();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presenter, navigation]);
 
   useActionErrorAlert(state.errorText);
@@ -151,8 +134,9 @@ export default function PromotionPreviewView({ navigation }) {
           ) : (
             <Text style={styles.hint}>
               Tap a student to change their decision, then Save decisions. Students only move
-              when this preview is confirmed in "Approve promotion and graduation" — JSS1
-              becomes JSS2, JSS3 becomes SSS1, and SSS3 graduates.
+              when this preview is confirmed in &quot;Approve promotion and
+              graduation&quot; — JSS1 becomes JSS2, JSS3 becomes SSS1, and SSS3
+              graduates.
             </Text>
           )}
 

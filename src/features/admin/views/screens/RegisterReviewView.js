@@ -20,7 +20,7 @@ export default function RegisterReviewView({ navigation, route }) {
   const [presenter] = useState(() => new RegisterReviewPresenter(AttendanceModel, AcademicStructureModel));
   const [state, setState] = useState(presenter.initialState);
   const loadedOnce = useRef(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(!route.params?.classId); // no class in the route → open the picker straight away
   const [pendingStudent, setPendingStudent] = useState(null);
   const [statusSheet, setStatusSheet] = useState(false);
   const initialClassId = route.params && route.params.classId;
@@ -28,10 +28,7 @@ export default function RegisterReviewView({ navigation, route }) {
   useEffect(() => {
     presenter.attach(setState, navigation);
     if (initialClassId) presenter.openClass(initialClassId);
-    else {
-      presenter.pickClass();
-      setPickerOpen(true);
-    }
+    else presenter.pickClass();
     const unsubscribe = navigation.addListener('focus', () => {
       if (loadedOnce.current && state.register) presenter.openRegister(state.register.id);
       loadedOnce.current = true;

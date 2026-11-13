@@ -1,13 +1,19 @@
 /**
  * AD29 — School messages (View): the notifications inbox. One row per
  * conversation with its unread badge; opening a thread goes to AD30.
+ *
+ * "New message" opens in three steps:
+ *   1. WHO — All guardians / All teachers / the individual picker / any
+ *      class from the live class list.
+ *   2a. A class → Teachers, Guardians, or BOTH (the whole group in one tap).
+ *   2b. Individuals → tick 1+ teachers and guardians, or "Send to all".
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import RecordList from '../components/RecordList';
 import SelectSheet from '../components/SelectSheet';
-import { LoadingView, EmptyState, ErrorState } from '../components/FeedbackViews';
+import { LoadingView, EmptyState, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import { PrimaryButton } from './AdminHomeView';
 import { MessageInboxPresenter } from '../../presenters/MessageInboxPresenter';
 import { MessagesModel } from '../../models';
@@ -16,9 +22,16 @@ import { spacing } from '../theme';
 export default function MessageInboxView({ navigation }) {
   const [presenter] = useState(() => new MessageInboxPresenter(MessagesModel));
   const [state, setState] = useState(presenter.initialState);
-  const [newChatSheet, setNewChatSheet] = useState(false);
-  const [peopleSheet, setPeopleSheet] = useState(false);
+  const [groupSheet, setGroupSheet] = useState(false);
+  const [classSheet, setClassSheet] = useState(false);
+  const [individualsSheet, setIndividualsSheet] = useState(false);
+  const [pickedRecipients, setPickedRecipients] = useState([]);
+  const [currentGroup, setCurrentGroup] = useState(null); // step-1 value driving the open sheet
   const loadedOnce = useRef(false);
+
+  // Conversation-start refusals (empty selection, server guard) pop up —
+  // they used to fail invisibly.
+  useActionErrorAlert(state.errorText, 'New message');
 
   useEffect(() => {
     presenter.attach(setState, navigation);
@@ -34,6 +47,37 @@ export default function MessageInboxView({ navigation }) {
       presenter.detach();
     };
   }, [presenter, navigation]);
+
+  const labelOf = (value) => {
+    const hit = state.recipients.find((r) => r.value === value);
+    return hit ? hit.label : value;
+  };
+
+  // Step 1 → route each audience to its own second step.
+  const onPickGroup = (value) => {
+    setGroupSheet(false);
+    setCurrentGroup(value);
+    if (value.startsWith('class:')) {
+      presenter.loadPeople(value, () => setClassSheet(true));
+    } else {
+      setPickedRecipients([]);
+      presenter.loadPeople(value, () => setIndividualsSheet(true));
+    }
+  };
+
+  // Individuals sheet: "Done" sends to the ticked people, "Send to all" to
+  // everyone the sheet shows.
+  const sendIndividuals = (sendAll) => {
+    const values = state.people.map((p) => p.value);
+    const allTitle =
+      currentGroup === 'group:all-teachers'
+        ? 'All teachers'
+        : currentGroup === 'group:all-guardians'
+          ? 'All guardians'
+          : 'All teachers & guardians';
+    setIndividualsSheet(false);
+    presenter.startForSelection(pickedRecipients, values, allTitle);
+  };
 
   return (
     <AdminScaffold
@@ -65,27 +109,54 @@ export default function MessageInboxView({ navigation }) {
       <View style={{ marginTop: spacing.md }}>
         <PrimaryButton
           label={state.starting ? 'Creating…' : 'New message'}
-          onPress={() => presenter.loadRecipients(() => setNewChatSheet(true))}
+          onPress={() => presenter.loadRecipients(() => setGroupSheet(true))}
           disabled={state.starting}
         />
       </View>
 
+      {/* Step 1 — the audience. */}
       <SelectSheet
-        visible={newChatSheet}
-        label="Message which group?"
-        options={state.recipients.map((r) => ({ label: r, value: r }))}
+        visible={groupSheet}
+        label="Message who?"
+        options={state.recipients.map((r) => ({ label: r.label, value: r.value }))}
         value={null}
-        onSelect={(v) => presenter.loadPeople(v, () => setPeopleSheet(true))}
-        onClose={() => setNewChatSheet(false)}
+        onSelect={onPickGroup}
+        onClose={() => setGroupSheet(false)}
       />
 
+      {/* Step 2a — one class: its teachers, its guardians, or both. */}
       <SelectSheet
-        visible={peopleSheet}
-        label="Message which person?"
+        visible={classSheet}
+        label={currentGroup ? `Message which group in ${labelOf(currentGroup)}` : 'Message which group?'}
         options={state.people.map((p) => ({ label: p.label, value: p.value }))}
         value={null}
-        onSelect={(v) => presenter.onStartConversation(v)}
-        onClose={() => setPeopleSheet(false)}
+        onSelect={(v) => {
+          const hit = state.people.find((p) => p.value === v);
+          setClassSheet(false);
+          presenter.onStartConversation(v, hit ? hit.label : v);
+        }}
+        onClose={() => setClassSheet(false)}
+      />
+
+      {/* Step 2b — individuals: tick 1+ people, or Send to all. */}
+      <SelectSheet
+        visible={individualsSheet}
+        label="Tick the people to message — or send to all"
+        options={state.people.map((p) => ({ label: p.label, value: p.value }))}
+        multiple
+        selectedValues={pickedRecipients}
+        onToggle={(value) =>
+          setPickedRecipients((prev) =>
+            prev.includes(value) ? prev.filter((r) => r !== value) : [...prev, value],
+          )
+        }
+        extraAction={
+          state.people.length
+            ? { label: `Send to all (${state.people.length})`, onPress: () => sendIndividuals(true) }
+            : null
+        }
+        onDone={() => sendIndividuals(false)}
+        onClose={() => setIndividualsSheet(false)}
       />
     </AdminScaffold>
   );

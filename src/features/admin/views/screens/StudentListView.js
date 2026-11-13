@@ -15,14 +15,12 @@ import { LoadingView, EmptyState, ErrorState } from '../components/FeedbackViews
 import { PrimaryButton, SecondaryButton } from './AdminHomeView';
 import { StudentListPresenter } from '../../presenters/StudentListPresenter';
 import { StudentModel } from '../../models';
+import useClassOptions from '../components/useClassOptions';
 import { colors, typography, spacing } from '../theme';
 
-// The dropdown choices the handoff shows for AD02. Load sessions/classes from
-// the school later (endpoints.academics.classes / calendar.sessions).
+// The dropdown choices the handoff shows for AD02. Classes are LIVE now —
+// a class created in AD12 is filterable here right away.
 const SESSIONS = ['2026/2027', '2025/2026'].map((s) => ({ label: s, value: s }));
-const CLASSES = ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A', 'SSS1 A', 'SSS2 A', 'SSS3 A']
-  .map((c) => ({ label: c, value: c }))
-  .concat([{ label: 'All classes', value: 'all' }]);
 const DEPARTMENTS = ['Science', 'Humanities / Arts', 'Business / Commercial']
   .map((d) => ({ label: d, value: d }))
   .concat([{ label: 'All departments', value: 'all' }]);
@@ -38,6 +36,8 @@ export default function StudentListView({ navigation }) {
   const [presenter] = useState(() => new StudentListPresenter(StudentModel));
   const [state, setState] = useState(presenter.initialState);
   const [sheet, setSheet] = useState(null); // which SelectSheet is open
+  // Live classes + the "All classes" filter entry at the top of the sheet.
+  const CLASSES = [...useClassOptions(), { label: 'All classes', value: 'all' }];
   const loadedOnce = useRef(false);
 
   useEffect(() => {

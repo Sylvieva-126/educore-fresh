@@ -76,7 +76,6 @@ function MenuScreen({ adCodes }) {
             onPress={() => navigation.navigate(entry.name)}
           >
             <View style={styles.menuCardBody}>
-              <Text style={styles.menuCode}>{code}</Text>
               <Text style={styles.menuTitle}>{entry.title}</Text>
               <Text style={styles.menuDesc}>{MENU_DESCRIPTIONS[code]}</Text>
             </View>
@@ -232,7 +231,6 @@ const styles = StyleSheet.create({
   },
   menuCardPressed: { backgroundColor: colors.positive },
   menuCardBody: { flex: 1 },
-  menuCode: { ...typography.label, color: colors.primary, marginBottom: 2 },
   menuTitle: { ...typography.body, fontWeight: '700' },
   menuDesc: { ...typography.label, color: colors.muted, marginTop: 2 },
   menuChevron: { color: colors.muted, fontSize: 20 },

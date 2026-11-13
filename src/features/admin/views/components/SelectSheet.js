@@ -19,8 +19,19 @@ export default function SelectSheet({
   multiple = false,
   selectedValues = [],
   onToggle,
+  // Optional action shown under the list in multi-select mode — the message
+  // composer uses it for "Send to all of these people" (one tap, no picking).
+  extraAction = null,
+  // Optional confirm for multi-select: the Done button calls onDone when it
+  // is given (so Done can MEAN "send"), while the backdrop still cancels
+  // through onClose.
+  onDone = null,
 }) {
   const picked = multiple ? selectedValues.length : 0;
+  const handleDone = () => {
+    if (onDone) onDone();
+    else onClose();
+  };
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
@@ -58,9 +69,19 @@ export default function SelectSheet({
             }}
           />
           {multiple ? (
-            <Pressable style={({ pressed }) => [styles.done, pressed && { opacity: 0.7 }]} onPress={onClose}>
-              <Text style={styles.doneText}>Done{picked ? ` (${picked} selected)` : ''}</Text>
-            </Pressable>
+            <>
+              {extraAction ? (
+                <Pressable
+                  style={({ pressed }) => [styles.done, styles.extraAction, pressed && { opacity: 0.7 }]}
+                  onPress={extraAction.onPress}
+                >
+                  <Text style={styles.doneText}>{extraAction.label}</Text>
+                </Pressable>
+              ) : null}
+              <Pressable style={({ pressed }) => [styles.done, pressed && { opacity: 0.7 }]} onPress={handleDone}>
+                <Text style={styles.doneText}>Done{picked ? ` (${picked} selected)` : ''}</Text>
+              </Pressable>
+            </>
           ) : null}
         </View>
       </View>
@@ -108,5 +129,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
   },
+  extraAction: { backgroundColor: colors.text, marginTop: spacing.lg },
   doneText: { ...typography.body, color: colors.onPrimary, fontWeight: '700' },
 });

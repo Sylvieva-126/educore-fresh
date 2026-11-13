@@ -17,9 +17,8 @@ import { LoadingView, ErrorState, useActionErrorAlert } from '../components/Feed
 import { PrimaryButton, SecondaryButton } from './AdminHomeView';
 import { StudentProfilePresenter } from '../../presenters/StudentProfilePresenter';
 import { StudentModel } from '../../models';
+import useClassOptions from '../components/useClassOptions';
 import { colors, typography, spacing, statusTone } from '../theme';
-
-const CLASSES = ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A', 'SSS1 A', 'SSS2 A', 'SSS3 A'];
 
 export default function StudentProfileView({ route, navigation }) {
   const [presenter] = useState(() => new StudentProfilePresenter(StudentModel));
@@ -27,6 +26,8 @@ export default function StudentProfileView({ route, navigation }) {
   const [classSheet, setClassSheet] = useState(false);
   const [targetClass, setTargetClass] = useState(null);
   const loadedOnce = useRef(false);
+  // Live class list — a class created in AD12 is a valid move target here.
+  const CLASSES = useClassOptions();
 
   useEffect(() => {
     presenter.attach(setState, navigation);
@@ -122,6 +123,9 @@ export default function StudentProfileView({ route, navigation }) {
                 onPress={() => setClassSheet(true)}
               />
               {state.classMoveError ? <Text style={styles.error}>{state.classMoveError}</Text> : null}
+              {state.classMoveNotice ? (
+                <Text style={styles.moveNotice}>{state.classMoveNotice}</Text>
+              ) : null}
               <SecondaryButton
                 label={
                   state.classMoveState === 'saving'
@@ -179,7 +183,7 @@ export default function StudentProfileView({ route, navigation }) {
       <SelectSheet
         visible={classSheet}
         label="Move to class"
-        options={CLASSES.map((c) => ({ label: c, value: c }))}
+        options={CLASSES}
         value={targetClass}
         onSelect={(v) => setTargetClass(v)}
         onClose={() => setClassSheet(false)}
@@ -193,5 +197,6 @@ const styles = StyleSheet.create({
   line: { ...typography.body, marginBottom: spacing.xs },
   muted: { ...typography.body, color: colors.muted },
   error: { ...typography.label, color: '#a33a2a', marginBottom: spacing.sm },
+  moveNotice: { ...typography.label, color: colors.primary, marginBottom: spacing.sm },
   moreButtons: { gap: spacing.sm, marginTop: spacing.xs },
 });

@@ -10,6 +10,7 @@
  */
 
 import { getToken, fireUnauthorized } from './auth';
+import { ApiError } from './ApiError';
 import { demoRequest } from './demoData';
 
 const REAL_API_URL = process.env.EXPO_PUBLIC_API_URL || '';
@@ -35,7 +36,6 @@ export const API_CONFIG = {
     MUST stay the SAME class the presenters import — the v15 refactor created
     a second ApiError class here, and `error instanceof ApiError` then failed
     for every server error, replacing all detailed messages with generic ones. */
-import { ApiError } from './ApiError';
 export { ApiError };
 
 function buildUrl(path, query) {

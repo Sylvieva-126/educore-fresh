@@ -12,19 +12,18 @@ import { PrimaryButton } from './AdminHomeView';
 import { useActionErrorAlert } from '../components/FeedbackViews';
 import { StudentFormPresenter } from '../../presenters/StudentFormPresenter';
 import { StudentModel } from '../../models';
+import useClassOptions from '../components/useClassOptions';
 import { colors, typography, spacing } from '../theme';
 
 const GENDERS = ['Female', 'Male'].map((g) => ({ label: g, value: g }));
-const CLASSES = ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A', 'SSS1 A', 'SSS2 A', 'SSS3 A'].map((c) => ({
-  label: c,
-  value: c,
-}));
+// Live class list — a class created in AD12 is enrol-able here right away.
 const DEPARTMENTS = ['Science', 'Humanities / Arts', 'Business / Commercial'].map((d) => ({
   label: d,
   value: d,
 }));
 
 export default function StudentFormView({ route, navigation }) {
+  const CLASSES = useClassOptions();
   const [presenter] = useState(() => new StudentFormPresenter(StudentModel));
   const [state, setState] = useState(presenter.initialState);
   const [sheet, setSheet] = useState(null); // which SelectSheet is open

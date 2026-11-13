@@ -5,6 +5,24 @@
  */
 import { ApiError } from '../api/ApiError';
 
+/** The wording the office sees after a class move: moving UP a level is a
+    promotion, staying in the level is a transfer, moving DOWN repeats. */
+function classMoveMessage(from, to) {
+  const levelOf = (label) => {
+    const m = /^(JSS|SSS)(\d)/.exec(String(label || '').toUpperCase());
+    return m ? m[1] === 'SSS' ? 3 + Number(m[2]) : Number(m[2]) : null;
+  };
+  const a = levelOf(from);
+  const b = levelOf(to);
+  if (a !== null && b !== null && b > a) {
+    return `Promoted to ${to} — the student list, fees and timetable all show ${to} now.`;
+  }
+  if (a !== null && b !== null && b < a) {
+    return `Moved to ${to} — they repeat that level; their old class list is updated too.`;
+  }
+  return `Moved to ${to} — the student list, fees and timetable all show ${to} now.`;
+}
+
 export class StudentProfilePresenter {
   constructor(studentModel) {
     this.model = studentModel;
@@ -21,6 +39,7 @@ export class StudentProfilePresenter {
       // 'draft' | 'saving' | 'accepted' | 'failed'
       classMoveState: 'draft',
       classMoveError: null,
+      classMoveNotice: null,
       withdrawalState: 'draft',
       withdrawalError: null,
     };
@@ -68,13 +87,18 @@ export class StudentProfilePresenter {
   /** Move class: the backend keeps one identity per student across years. */
   async confirmClassMove(targetClassId, effectiveFrom) {
     if (this.state.classMoveState === 'saving') return;
-    this._setState({ classMoveState: 'saving', classMoveError: null });
+    this._setState({ classMoveState: 'saving', classMoveError: null, classMoveNotice: null });
     try {
-      await this.model.moveClass(this._studentId, {
+      const result = await this.model.moveClass(this._studentId, {
         targetClassId,
         effectiveFrom,
       });
-      this._setState({ classMoveState: 'accepted' });
+      const from = this.state.student ? this.state.student.classLabel : null;
+      const to = (result && result.to) || targetClassId;
+      this._setState({
+        classMoveState: 'accepted',
+        classMoveNotice: from && from !== to ? classMoveMessage(from, to) : null,
+      });
       await this.load(this._studentId); // refresh the header class label
     } catch (error) {
       this._setState({

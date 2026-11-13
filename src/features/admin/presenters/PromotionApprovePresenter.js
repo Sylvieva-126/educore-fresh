@@ -5,6 +5,7 @@
  * Confirming is final: the preview freezes and the change is audited.
  */
 import { ApiError } from '../api/ApiError';
+import { nextClassOf } from '../utils/validators';
 
 export class PromotionApprovePresenter {
   constructor(promotionModel) {
@@ -103,13 +104,20 @@ export class PromotionApprovePresenter {
     this._setState({ busy: true, notice: null, errorText: null });
     try {
       const result = await this.model.confirm(preview.id);
+      // The notice names WHERE each group went, e.g. "5 promoted to JSS2 A ·
+      // 3 repeat in JSS1 A · 1 graduates" — the summary alone ("promote 5")
+      // left the office guessing what actually happened.
+      const cls = result.preview.classLabel;
+      const dest = nextClassOf(cls);
       this._setState({
         busy: false,
         preview: result.preview,
         notice:
-          `${result.preview.classLabel} confirmed — promote ${result.preview.summary.promote} ` +
-          `move up, repeat ${result.preview.summary.repeat} stay, ` +
-          `graduate ${result.preview.summary.graduate} leave with their result slips.`,
+          `${cls} confirmed — ` +
+          `${result.preview.summary.promote} promoted to ${dest}` +
+          ` · ${result.preview.summary.repeat} repeat in ${cls}` +
+          ` · ${result.preview.summary.graduate} graduate with their result slips.` +
+          ' The students now show their new class everywhere.',
       });
       await this.load({ showLoading: false });
     } catch (error) {

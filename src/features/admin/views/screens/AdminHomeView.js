@@ -101,6 +101,10 @@ export default function AdminHomeView({ navigation }) {
               title: item.title,
               meta: item.detail,
               status: item.countLabel,
+              // The type decides WHICH page opens (results, fees, complaints)
+              // — it must survive the mapping or every card falls back to
+              // the attendance overview.
+              type: item.type,
             }))}
             onPressItem={(item) => presenter.onOpenAttention(item)}
             emptyText="Nothing is waiting on you."

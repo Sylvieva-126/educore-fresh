@@ -32,7 +32,7 @@ export default function GuardianProfileView({ route, navigation }) {
       unsubscribe?.remove?.();
       presenter.detach();
     };
-  }, [presenter, guardianId]);
+  }, [presenter, guardianId, navigation]);
 
   const g = state.guardian;
 

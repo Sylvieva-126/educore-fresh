@@ -13,16 +13,15 @@ import SelectSheet from '../components/SelectSheet';
 import { SecondaryButton } from './AdminHomeView';
 import { FeePlansPresenter } from '../../presenters/FeePlansPresenter';
 import { FeePlanModel } from '../../models';
+import useClassOptions from '../components/useClassOptions';
 import { colors, typography, spacing } from '../theme';
-
-const CLASSES = ['JSS1 A', 'JSS1 B', 'JSS2 A', 'JSS3 A', 'SSS1 A', 'SSS2 A', 'SSS3 A'].map(
-  (c) => ({ label: c, value: c }),
-);
 
 export default function FeePlansView({ navigation }) {
   const [presenter] = useState(() => new FeePlansPresenter(FeePlanModel));
   const [state, setState] = useState(presenter.initialState);
   const loadedOnce = useRef(false);
+  // Live class list — a class created in AD12 can be billed right away.
+  const CLASSES = useClassOptions();
   // New-plan form fields (view-owned; the presenter only receives values).
   // Classes come from a multi-select sheet, not free text — no more typos.
   const [pickedClasses, setPickedClasses] = useState([]);
@@ -40,10 +39,11 @@ export default function FeePlansView({ navigation }) {
   const confirmIssue = (plan) => {
     if (plan.status === 'Issued') {
       Alert.alert(
-        'Already issued',
-        `These bills went out to ${plan.issuedCount} student${
-          plan.issuedCount === 1 ? '' : 's'
-        } already.`,
+        'Bills already out',
+        `${plan.classLabel} already has the "${plan.title}" bills — they went to ${
+          plan.issuedCount ?? plan.studentsCount ?? 'the'
+        } student${plan.issuedCount === 1 ? '' : 's'} in that class when the plan was issued. ` +
+          'Open Student invoices to see them and record payments. Issuing again would bill everyone twice.',
       );
       return;
     }

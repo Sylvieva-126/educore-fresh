@@ -33,7 +33,7 @@ export default function PaymentDetailView({ route, navigation }) {
       unsubscribe?.remove?.();
       presenter.detach();
     };
-  }, [presenter, paymentId]);
+  }, [presenter, paymentId, navigation]);
 
   const p = state.payment;
 

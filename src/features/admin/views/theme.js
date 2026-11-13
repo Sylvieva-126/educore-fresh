@@ -63,6 +63,7 @@ export const statusTone = {
   Closed: 'muted',
   ReadyToPublish: 'attention',
   ReturnedForCorrections: 'error',
-  Approved: 'positive',
+  'On Leave': 'attention',
+  Inactive: 'error',
   Archived: 'muted',
 };

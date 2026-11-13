@@ -39,7 +39,7 @@ export default function InvoiceDetailView({ route, navigation }) {
       unsubscribe?.remove?.();
       presenter.detach();
     };
-  }, [presenter, invoiceId]);
+  }, [presenter, invoiceId, navigation]);
 
   const inv = state.invoice;
 
@@ -120,7 +120,8 @@ export default function InvoiceDetailView({ route, navigation }) {
             placeholder="e.g. 20000"
             placeholderTextColor={colors.muted}
             value={amountText}
-            onChangeText={setAmountText}
+            // Pasted text cannot smuggle letters or symbols past the number pad.
+            onChangeText={(t) => setAmountText(t.replace(/[^0-9.]/g, ''))}
           />
 
           <Text style={styles.fieldLabel}>Method</Text>

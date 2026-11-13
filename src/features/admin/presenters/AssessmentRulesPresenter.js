@@ -4,6 +4,7 @@
  * checks the arithmetic; lock freezes the policy for the term.
  */
 import { ApiError } from '../api/ApiError';
+import { gradingArithmeticError } from '../utils/validators';
 
 export class AssessmentRulesPresenter {
   constructor(assessmentModel) {
@@ -79,11 +80,33 @@ export class AssessmentRulesPresenter {
     }
   }
 
-  async lock() {
+  /**
+   * Lock for the term. Lock used to send only the policy id, so whatever
+   * was TYPED on screen was silently ignored and a wrong set of numbers
+   * still "locked" (with the old saved values). Now the on-screen values
+   * run the SAME arithmetic check as save first: a wrong policy is refused
+   * with its reason and nothing is locked, a changed-but-valid policy is
+   * saved and then locked in one press.
+   */
+  async lock(fields) {
     const policy = this.state.policy;
     if (!policy || this.state.saving) return;
+    const candidate = {
+      caWeight: fields && fields.caWeight !== undefined ? fields.caWeight : policy.caWeight,
+      examWeight: fields && fields.examWeight !== undefined ? fields.examWeight : policy.examWeight,
+      passMark: fields && fields.passMark !== undefined ? fields.passMark : policy.passMark,
+      grades: fields && fields.grades !== undefined ? fields.grades : policy.grades,
+    };
+    const problem = gradingArithmeticError(candidate);
+    if (problem) {
+      // Keep the typed values on screen so the admin can fix exactly the
+      // number the message names. The saved policy stays unlocked.
+      this._setState({ errorText: `${problem} Fix the rules before locking.` });
+      return;
+    }
     this._setState({ saving: true, notice: null, errorText: null });
     try {
+      await this.model.createPolicy(candidate); // persists any edits made since the last save
       const result = await this.model.lockPolicy(policy.id);
       this._setState({
         saving: false,

@@ -77,7 +77,7 @@ export default function AttendanceOverviewView({ navigation }) {
               : 'No register corrections are waiting.'}
           </Text>
 
-          <Text style={styles.section}>Today's registers</Text>
+          <Text style={styles.section}>Today&apos;s registers</Text>
           <RecordList
             items={state.registers.map((r) => ({
               id: r.id,

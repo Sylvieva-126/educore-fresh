@@ -12,7 +12,8 @@ import { LoadingView, ErrorState, useActionErrorAlert } from '../components/Feed
 import { PrimaryButton, SecondaryButton } from './AdminHomeView';
 import { CalendarPresenter } from '../../presenters/CalendarPresenter';
 import { CalendarModel } from '../../models';
-import { digitsOnly } from '../../utils/validators';
+import { calendarDateError } from '../../utils/validators';
+import { timeError } from '../../api/validation';
 import { colors, typography, spacing } from '../theme';
 
 export default function CalendarView({ navigation }) {
@@ -29,7 +30,6 @@ export default function CalendarView({ navigation }) {
     presenter.attach(setState, navigation);
     presenter.load();
     return () => presenter.detach();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presenter, navigation]);
 
   useActionErrorAlert(state.errorText);
@@ -99,9 +99,13 @@ export default function CalendarView({ navigation }) {
             placeholder="Date — e.g. 2026-12-18"
             placeholderTextColor={colors.muted}
             value={keyDate}
-            onChangeText={setKeyDate}
+            onChangeText={(t) => setKeyDate(t.replace(/[^\d-]/g, '').slice(0, 10))}
             autoCapitalize="none"
+            keyboardType="number-pad"
           />
+          {keyDate.trim() && calendarDateError(keyDate) ? (
+            <Text style={styles.fieldError}>{calendarDateError(keyDate)}</Text>
+          ) : null}
           <TextInput
             style={styles.input}
             placeholder="Title — e.g. Science fair"
@@ -159,14 +163,19 @@ export default function CalendarView({ navigation }) {
             emptyText="No published activities for today."
           />
           <Text style={styles.formLabel}>Add to today</Text>
+          {/* Same time entry as the timetable: a 24-hour HH:MM field. */}
           <TextInput
             style={styles.input}
-            placeholder="Time — digits only, e.g. 915 or 1415"
+            placeholder="Time — 24-hour clock, e.g. 09:15"
             placeholderTextColor={colors.muted}
             value={todayTime}
-            onChangeText={(t) => setTodayTime(digitsOnly(t).slice(0, 4))} // digits only, no colon
+            onChangeText={(t) => setTodayTime(t.replace(/[^\d:]/g, '').slice(0, 5))}
             keyboardType="number-pad"
+            maxLength={5}
           />
+          {todayTime.trim() && timeError(todayTime) ? (
+            <Text style={styles.fieldError}>{timeError(todayTime)}</Text>
+          ) : null}
           <TextInput
             style={styles.input}
             placeholder="Activity — e.g. Staff briefing"
@@ -212,5 +221,6 @@ const styles = StyleSheet.create({
   },
   actionWrap: { marginBottom: spacing.sm },
   hint: { ...typography.label, color: colors.muted, marginTop: spacing.sm },
+  fieldError: { ...typography.label, color: '#a1422f', marginBottom: spacing.xs },
   notice: { ...typography.body, color: colors.primary, marginTop: spacing.md },
 });

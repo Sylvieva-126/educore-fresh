@@ -104,3 +104,76 @@ export function destinationLabel(classLabel, decision) {
   if (decision === 'Repeat') return `repeat · stays in ${classLabel}`;
   return 'graduate · leaves with their result slip';
 }
+
+/** The grading-policy arithmetic (AD18) — the SAME check the demo server
+    runs on save and on lock, mirrored on the client so Lock can refuse a
+    wrong policy BEFORE anything reaches the server. Returns the problem
+    message or null. */
+export function gradingArithmeticError(p) {
+  const ca = Number(p.caWeight);
+  const exam = Number(p.examWeight);
+  const pass = Number(p.passMark);
+  if (!Number.isFinite(ca) || !Number.isFinite(exam) || ca < 0 || exam < 0) {
+    return 'Enter the CA and exam weights as numbers.';
+  }
+  if (ca + exam !== 100) {
+    return `CA (${ca}%) + exam (${exam}%) must add up to exactly 100%.`;
+  }
+  if (!Number.isFinite(pass) || pass < 34 || pass > 100) {
+    return 'The pass mark must be between 34 and 100.';
+  }
+  const grades = Array.isArray(p.grades) ? p.grades : [];
+  for (let i = 1; i < grades.length; i++) {
+    if (Number(grades[i - 1].minScore) <= Number(grades[i].minScore)) {
+      return `Grade ${grades[i - 1].grade} must start above grade ${grades[i].grade} — check the minimum scores.`;
+    }
+  }
+  const belowPass = grades.filter((g) => g.grade !== 'F' && Number(g.minScore) < pass);
+  if (belowPass.length) {
+    return `Grade ${belowPass[0].grade} starts below the pass mark — every grade except F must start at ${pass}% or above.`;
+  }
+  return null;
+}
+
+/** Real-calendar date for ANY date field (key dates, sessions, fees):
+    YYYY-MM-DD with a month 01-12 and a day that exists in that month —
+    so 2026-09-56 and 2026-02-31 are refused everywhere. Returns the
+    problem message or null. */
+export function calendarDateError(value) {
+  const text = cleanText(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (!match) {
+    return 'Enter the date as YYYY-MM-DD — e.g. 2026-12-18.';
+  }
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const isReal =
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  if (month < 1 || month > 12 || !isReal) {
+    return `There is no ${month}-month day ${day} — ${text} is not a real date. Use YYYY-MM-DD, e.g. 2026-12-18.`;
+  }
+  return null;
+}
+
+/** One phone format everywhere: +234 followed by 10 digits, shown with one
+    space ("+234 810 444 5050") — the same shape the staff list already uses.
+    A local 0-prefixed number (0810…) converts to its +234 form; digits-only
+    10-digit numbers get the +234 prefix. Returns the canonical string. */
+export function canonicalPhone(value) {
+  const phone = normalizePhone(value);
+  if (!phone) return '';
+  let body = phone;
+  if (body.startsWith('+234')) {
+    body = body.slice(4);
+  } else if (body.startsWith('234') && body.length === 13) {
+    body = body.slice(3);
+  } else if (body.startsWith('0') && body.length === 11) {
+    body = body.slice(1);
+  } else if (body.length === 10) {
+    // already the 10-digit national number without the trunk 0
+  } else {
+    return phone; // not a normalisable Nigerian number — leave it for the validator
+  }
+  // 3-3-4 grouping, the way Nigerian numbers are usually written.
+  return `+234 ${body.slice(0, 3)} ${body.slice(3, 6)} ${body.slice(6)}`;
+}

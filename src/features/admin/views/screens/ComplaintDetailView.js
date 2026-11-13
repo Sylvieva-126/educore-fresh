@@ -34,7 +34,7 @@ export default function ComplaintDetailView({ route, navigation }) {
       unsubscribe?.remove?.();
       presenter.detach();
     };
-  }, [presenter, caseId]);
+  }, [presenter, caseId, navigation]);
 
   const c = state.complaint;
 

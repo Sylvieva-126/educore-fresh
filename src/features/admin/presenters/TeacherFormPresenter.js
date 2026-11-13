@@ -5,6 +5,7 @@
  */
 import { ApiError } from '../api/ApiError';
 import { emailError, phoneError } from '../api/validation.js';
+import { canonicalPhone } from '../utils/validators';
 
 export class TeacherFormPresenter {
   constructor(teacherModel, structureModel) {
@@ -92,18 +93,21 @@ export class TeacherFormPresenter {
       this._setState({ notice: null, errorText: emailProblem });
       return false;
     }
+    // ONE phone format everywhere: the raw typing is validated first (so
+    // junk like "call me" is still refused), then stored as +234 + 10 digits.
     const phoneProblem = phoneError(fields.phone);
     if (phoneProblem) {
       this._setState({ notice: null, errorText: phoneProblem });
       return false;
     }
+    const phone = canonicalPhone(fields.phone);
     this._setState({ saving: true, notice: null, errorText: null });
     try {
       if (this.state.mode === 'create') {
         const result = await this.model.create({
           fullName: fields.fullName,
           staffNumber: fields.staffNumber,
-          phone: fields.phone,
+          phone,
           email: fields.email,
           subjects: fields.subjects,
           formClass: fields.formClass,
@@ -124,7 +128,7 @@ export class TeacherFormPresenter {
       const saved = await this.model.update(this.state.teacherId, {
         fullName: fields.fullName,
         staffNumber: fields.staffNumber,
-        phone: fields.phone,
+        phone,
         email: fields.email,
         formClass: fields.formClass,
       });
