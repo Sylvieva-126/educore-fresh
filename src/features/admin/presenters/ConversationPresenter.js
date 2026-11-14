@@ -19,6 +19,8 @@ export class ConversationPresenter {
       messages: [],
       sending: false,
       replyFailed: false,
+      savingThread: false, // close/reopen in flight
+      notice: null,
       errorText: null,
     };
     this.state = this.initialState;
@@ -84,6 +86,15 @@ export class ConversationPresenter {
   async onSend(text) {
     const body = String(text ?? '').trim();
     if (!body || this.state.sending || !this._conversationId) return;
+    // A closed thread refuses new replies — the View disables the box too, but
+    // the server-side check is the real guard (so a stale screen cannot post).
+    if (this.state.conversation && this.state.conversation.closed) {
+      this._setState({
+        replyFailed: true,
+        errorText: 'This thread is closed — reopen it to send a new message.',
+      });
+      return;
+    }
     this._setState({ sending: true, replyFailed: false });
     try {
       await this.model.sendMessage(this._conversationId, { text: body });
@@ -95,6 +106,45 @@ export class ConversationPresenter {
         replyFailed: true,
         errorText:
           error instanceof ApiError ? error.message : 'The message was not sent. Try again.',
+      });
+    }
+  }
+
+  /** Close (block) a thread — no further replies are accepted until it is
+      reopened. The history stays intact. */
+  async closeConversation() {
+    if (!this._conversationId || this.state.savingThread) return;
+    this._setState({ savingThread: true, errorText: null });
+    try {
+      const result = await this.model.closeConversation(this._conversationId);
+      const conversation = (result && result.conversation) || {
+        ...this.state.conversation,
+        closed: true,
+      };
+      this._setState({ savingThread: false, conversation, notice: 'Thread closed — replies are blocked.' });
+    } catch (error) {
+      this._setState({
+        savingThread: false,
+        errorText: error instanceof ApiError ? error.message : 'The thread could not be closed.',
+      });
+    }
+  }
+
+  /** Reopen a closed thread so replies are accepted again. */
+  async reopenConversation() {
+    if (!this._conversationId || this.state.savingThread) return;
+    this._setState({ savingThread: true, errorText: null });
+    try {
+      const result = await this.model.reopenConversation(this._conversationId);
+      const conversation = (result && result.conversation) || {
+        ...this.state.conversation,
+        closed: false,
+      };
+      this._setState({ savingThread: false, conversation, notice: 'Thread reopened — replies are accepted again.' });
+    } catch (error) {
+      this._setState({
+        savingThread: false,
+        errorText: error instanceof ApiError ? error.message : 'The thread could not be reopened.',
       });
     }
   }

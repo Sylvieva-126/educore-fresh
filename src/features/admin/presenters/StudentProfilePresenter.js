@@ -127,6 +127,11 @@ export class StudentProfilePresenter {
     try {
       await this.model.withdraw(this._studentId, { reason, effectiveDate });
       this._setState({ withdrawalState: 'accepted' });
+      // Reload the profile at once so the status flips to "Withdrawn" and the
+      // page becomes read-only IMMEDIATELY — without this, the Edit / Move /
+      // Withdraw controls stay on screen until the office leaves and comes
+      // back, so a second action was possible before the lock took hold.
+      await this.load(this._studentId);
     } catch (error) {
       this._setState({
         withdrawalState: 'failed',

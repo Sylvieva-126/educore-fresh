@@ -138,24 +138,16 @@ export class PromotionPreviewPresenter {
       });
       // What saving actually does: the class's outcomes are recorded. Students
       // only MOVE when AD27 confirms — JSS1 A/B/C then become JSS2, and so on.
-      const remaining = this.state.classOptions
-        .map((c) => c.classLabel)
-        .filter(
-          (cl) =>
-            cl !== result.preview.classLabel &&
-            !this.state.previews.some((p) => p.classLabel === cl && p.status !== 'Confirmed'),
-        );
-      const next =
-        remaining.length > 0
-          ? ` Next: build the preview for ${remaining[0]}.`
-          : ' Every class has a preview now — approve them all in "Approve promotion and graduation".';
+      // The notice no longer suggests which class to compute next: the office
+      // picks the next class themselves, and naming one was more distracting
+      // than helpful.
       this._setState({
         saving: false,
         preview: result.preview,
         previews: this.state.previews.map((p) => (p.id === result.preview.id ? result.preview : p)),
         notice:
           `Decisions saved for ${result.preview.classLabel} — students move up (or repeat, or ` +
-          `graduate) only when this preview is confirmed in "Approve promotion and graduation".${next}`,
+          `graduate) only when this preview is confirmed in "Approve promotion and graduation".`,
       });
     } catch (error) {
       this._setState({

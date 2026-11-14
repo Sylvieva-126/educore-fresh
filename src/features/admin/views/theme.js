@@ -45,6 +45,8 @@ export const statusTone = {
   Pending: 'attention',
   Flagged: 'attention',
   Withdrawn: 'attention',
+  Graduated: 'info',
+  Blocked: 'muted',
   PartiallyPaid: 'attention',
   Overdue: 'error',
   Rejected: 'error',

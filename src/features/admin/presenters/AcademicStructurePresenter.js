@@ -87,6 +87,20 @@ export class AcademicStructurePresenter {
       });
       return false;
     }
+    // Case-insensitive duplicate check against the LIVE class list, so "JSS1 a"
+    // is refused the same way as "JSS1 A" without waiting for the server. The
+    // backend re-checks too, but this gives an instant, friendly message.
+    const proposedLabel = `${fields.level} ${suffix}`;
+    const dupe = this.state.classes.some(
+      (c) => String(c.classLabel).toLowerCase() === proposedLabel.toLowerCase(),
+    );
+    if (dupe) {
+      this._setState({
+        notice: null,
+        errorText: `${proposedLabel} already exists — pick a different suffix (the case does not matter).`,
+      });
+      return false;
+    }
     this._setState({ savingClass: true, notice: null, errorText: null });
     try {
       const result = await this.model.createClass({ classLabel: `${fields.level} ${suffix}` });

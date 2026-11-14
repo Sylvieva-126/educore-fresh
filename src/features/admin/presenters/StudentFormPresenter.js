@@ -36,6 +36,7 @@ export class StudentFormPresenter {
     this._navigation = null;
     this._alive = false;
     this._studentId = null;
+    this._guardianSearchSeq = 0; // ignore stale guardian-match responses
     this.initialState = {
       status: 'draft', // draft | saving | accepted | failed
       mode: 'enrol', // enrol | edit
@@ -43,6 +44,13 @@ export class StudentFormPresenter {
       errors: {},
       errorText: null,
       notice: null,
+      // Existing-guardian lookup (enrol mode only): once the office types a
+      // phone or email we ask the backend for matching accounts so they can
+      // LINK this student to an existing guardian instead of creating a
+      // duplicate one with the same name.
+      guardianMatches: [],
+      guardianSearchState: 'idle', // idle | searching | done
+      linkGuardianId: null, // chosen existing guardian id, or null to create
     };
     this.state = this.initialState;
   }
@@ -67,7 +75,13 @@ export class StudentFormPresenter {
   async load(studentId) {
     if (!studentId) return; // enrol mode — nothing to load
     this._studentId = studentId;
-    this._setState({ mode: 'edit', errorText: null });
+    this._setState({
+      mode: 'edit',
+      errorText: null,
+      guardianMatches: [],
+      guardianSearchState: 'idle',
+      linkGuardianId: null,
+    });
     try {
       const student = await this.model.byId(studentId);
       const nameParts = String(student.name || '').split(' ');
@@ -97,7 +111,80 @@ export class StudentFormPresenter {
     const values = { ...this.state.values, [key]: value };
     const errors = { ...this.state.errors };
     if (errors[key]) delete errors[key]; // typing again clears the old complaint
-    this._setState({ values, errors });
+    // Editing guardian phone/email (or clearing the chosen link) re-runs the
+    // existing-guardian lookup so the office always sees the current matches.
+    const patch = { values, errors };
+    if (this.state.mode === 'enrol' && (key === 'guardianPhone' || key === 'guardianEmail')) {
+      patch.linkGuardianId = null; // a new search supersedes a manual pick
+      patch.guardianMatches = [];
+      patch.guardianSearchState = 'idle';
+    }
+    this._setState(patch);
+    if (this.state.mode === 'enrol' && (key === 'guardianPhone' || key === 'guardianEmail')) {
+      this._searchGuardianMatches(values);
+    }
+  }
+
+  /** Look up existing guardian accounts matching the typed phone/email. The
+      office can then link this student to one of them (Bug: two students with
+      the same parent were creating duplicate guardians of the same name). */
+  async _searchGuardianMatches(values) {
+    const seq = ++this._guardianSearchSeq;
+    const phone = normalizePhone(values.guardianPhone || '');
+    const email = normalizeEmail(values.guardianEmail || '');
+    if (!phone && !email) {
+      if (seq === this._guardianSearchSeq) {
+        this._setState({ guardianMatches: [], guardianSearchState: 'idle', linkGuardianId: null });
+      }
+      return;
+    }
+    // Only search once the phone looks long enough to be real, so we do not
+    // fire a request on every digit.
+    if (phone && phone.replace(/\D/g, '').length < 7) return;
+    this._setState({ guardianSearchState: 'searching' });
+    try {
+      const result = await this.model.findGuardianMatches({
+        guardianPhone: phone || undefined,
+        guardianEmail: email || undefined,
+      });
+      if (seq !== this._guardianSearchSeq || !this._alive) return; // a newer search won
+      const matches = (result && result.matches) || [];
+      // Auto-link when there is exactly one match and the office has not
+      // typed a conflicting guardian name — fewer taps for the common case.
+      const autoLink = matches.length === 1 ? matches[0].id : null;
+      this._setState({
+        guardianMatches: matches,
+        guardianSearchState: 'done',
+        linkGuardianId: this.state.linkGuardianId || autoLink,
+      });
+    } catch {
+      if (seq === this._guardianSearchSeq) {
+        this._setState({ guardianMatches: [], guardianSearchState: 'done' });
+      }
+    }
+  }
+
+  /** The office explicitly chose an existing guardian from the picker. */
+  onLinkGuardian(guardianId) {
+    const match = this.state.guardianMatches.find((g) => g.id === guardianId) || null;
+    const values = { ...this.state.values };
+    if (match) {
+      // Prefill the guardian fields from the linked account so the form shows
+      // the canonical name/phone/email of the existing guardian.
+      values.guardianName = match.fullName;
+      values.guardianPhone = match.phone;
+      values.guardianEmail = match.email;
+    }
+    this._setState({
+      linkGuardianId: guardianId,
+      values,
+      errors: { ...this.state.errors, guardianName: undefined, guardianPhone: undefined, guardianEmail: undefined },
+    });
+  }
+
+  /** The office chose "create a new guardian account" instead of linking. */
+  onCreateNewGuardian() {
+    this._setState({ linkGuardianId: null });
   }
 
   validate() {
@@ -147,6 +234,12 @@ export class StudentFormPresenter {
       guardianPhone: normalizePhone(v.guardianPhone),
       guardianEmail: normalizeEmail(v.guardianEmail) || undefined,
     };
+    // Enrol mode only: link this student to an existing guardian account when
+    // the office picked one (or when the auto-search found a single match),
+    // instead of creating a duplicate guardian with the same name.
+    if (this.state.mode === 'enrol' && this.state.linkGuardianId) {
+      body.linkGuardianId = this.state.linkGuardianId;
+    }
 
     try {
       if (this.state.mode === 'edit') {

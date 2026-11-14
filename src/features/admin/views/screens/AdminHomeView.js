@@ -143,7 +143,7 @@ export function PrimaryButton({ label, onPress, disabled }) {
   );
 }
 
-export function SecondaryButton({ label, onPress, disabled }) {
+export function SecondaryButton({ label, onPress, disabled, style }) {
   return (
     <Pressable
       onPress={onPress}
@@ -152,6 +152,7 @@ export function SecondaryButton({ label, onPress, disabled }) {
         styles.secondary,
         pressed && { opacity: 0.85 },
         disabled && { opacity: 0.5 },
+        style,
       ]}
     >
       <Text style={styles.secondaryText}>{label}</Text>

@@ -18,7 +18,8 @@ import { colors, typography, spacing } from '../theme';
 
 const AUDIENCES = [
   { label: 'Everyone', value: 'ALL' },
-  { label: 'A role (teachers, families…)', value: 'ROLE' },
+  { label: 'All teachers', value: 'ROLE_TEACHERS' },
+  { label: 'All parents', value: 'ROLE_PARENTS' },
   { label: 'A class', value: 'CLASS' },
 ];
 

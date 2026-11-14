@@ -5,9 +5,13 @@
  * phones it opens the native share sheet; on web (react-native-web has no
  * share sheet) it copies to the clipboard instead. Both paths return the
  * short user-facing notice the screen shows afterwards.
+ *
+ * toCsv() and parseCsv() are PURE (no React Native), so they can be imported
+ * in node tests and by presenters without pulling in the native Share/Platform
+ * modules. shareOrCopyCsv() does the native call, and uses a LAZY require of
+ * react-native at call time so importing this module in node (for the pure
+ * helpers) never trips the native bundler.
  */
-import { Share, Platform } from 'react-native';
-
 function csvField(value) {
   const text = value === null || value === undefined ? '' : String(value);
   if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
@@ -60,6 +64,8 @@ export function parseCsv(text) {
 }
 
 export async function shareOrCopyCsv(fileName, csv) {
+  // Lazy import so the pure helpers above stay importable in node tests.
+  const { Share, Platform } = await import('react-native');
   if (Platform.OS === 'web') {
     try {
       await navigator.clipboard.writeText(csv);

@@ -121,7 +121,11 @@ export default function RegisterReviewView({ navigation, route }) {
             onPressItem={(row) => onEntryPress(row.raw)}
             emptyText="Nobody is on this register — the class has no active students."
           />
-          <SecondaryButton label="Back to registers" onPress={() => presenter.backToRegisters()} />
+          <SecondaryButton
+            style={styles.backBtn}
+            label="Back to registers"
+            onPress={() => presenter.backToRegisters()}
+          />
         </View>
       ) : null}
 
@@ -154,4 +158,7 @@ export default function RegisterReviewView({ navigation, route }) {
 const styles = StyleSheet.create({
   notice: { ...typography.body, color: colors.primary, marginBottom: spacing.sm },
   hint: { ...typography.label, color: colors.muted, marginBottom: spacing.sm },
+  // Breathing room so "Back to registers" never touches the bottom of the
+  // student list above it (the office reported the button had no space on top).
+  backBtn: { marginTop: spacing.lg },
 });

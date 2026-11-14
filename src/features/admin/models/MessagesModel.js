@@ -30,6 +30,14 @@ export const MessagesModel = {
   async markRead(conversationId) {
     return api.put(endpoints.messages.markRead, { conversationId });
   },
+
+  async closeConversation(conversationId) {
+    return api.post(endpoints.messages.close, { conversationId });
+  },
+
+  async reopenConversation(conversationId) {
+    return api.post(endpoints.messages.reopen, { conversationId });
+  },
 };
 
 export default MessagesModel;

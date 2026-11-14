@@ -397,7 +397,11 @@ function liveClassNames() {
 }
 
 /** Parse a class label: a JSS/SSS level (1-3) plus any letter suffix —
-    "A", "C", "Diamond", "Gold Silver". Returns { level, label } or null. */
+    "A", "C", "Diamond", "Gold Silver". Returns { level, label } or null.
+    The suffix is normalised to a single-space form but keeps its original
+    letter case so "Diamond" stays "Diamond". Duplicate checks compare the
+    label case-insensitively (see liveClassNames/CLASSES clash checks) —
+    "JSS1 a" and "JSS1 A" are the SAME class and must be refused. */
 function parseClassLabel(raw) {
   const text = String(raw || '').trim().replace(/\s+/g, ' ');
   const m = /^((?:JSS|SSS)\d)\s+([A-Za-z][A-Za-z ]{0,11})$/i.exec(text);
@@ -405,6 +409,13 @@ function parseClassLabel(raw) {
   const level = m[1].toUpperCase();
   const suffix = m[2].trim().replace(/\s+/g, ' ');
   return { level, label: `${level} ${suffix}` };
+}
+
+/** Case-insensitive "does this class label already exist?" — used by both
+    the create and rename guards so "JSS1 a" cannot sneak past "JSS1 A". */
+function classLabelExists(label, exceptId) {
+  const target = String(label || '').trim().toLowerCase();
+  return CLASSES.some((c) => c.id !== exceptId && c.classLabel.toLowerCase() === target);
 }
 
 function classLabelFormatError() {
@@ -591,15 +602,16 @@ let NOTICES = [
     id: 'ntc-3',
     title: 'Inter-house sports — staff duty roster',
     body: 'Please confirm your duty slot with the sports master before Friday.',
-    audience: 'ROLE',
-    audienceLabel: 'Teachers only',
+    audience: 'ROLE_TEACHERS',
+    audienceLabel: 'All teachers',
     status: 'Draft',
     publishedAt: null,
   },
 ];
 
 function audienceLabelFor(audience) {
-  if (audience === 'ROLE') return 'Teachers only';
+  if (audience === 'ROLE_TEACHERS') return 'All teachers';
+  if (audience === 'ROLE_PARENTS') return 'All parents';
   if (audience === 'CLASS') return 'One class';
   return 'Whole school';
 }
@@ -932,7 +944,13 @@ const REPORT_CARDS = ['batch-1', 'batch-2'].map((batchId, i) => {
 /* ── AD26/AD27 — promotion previews (computed from official marks) ───── */
 
 function makePromotionRows(classLabel, graduating) {
-  const roster = STUDENTS.filter((s) => s.classLabel === classLabel);
+  // Only ACTIVE students are up for promotion/graduation. A withdrawn or
+  // already-graduated student is NOT in the roster, so the office cannot
+  // accidentally graduate a withdrawn student (the badge never flips for them
+  // because they are not on the preview at all).
+  const roster = STUDENTS.filter(
+    (s) => s.classLabel === classLabel && s.status === 'Active',
+  );
   return roster.map((s, i) => {
     const average = 38 + ((i * 17) % 50); // 38-87, deterministic per student
     const computed = graduating
@@ -1167,11 +1185,54 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     };
   }
 
+  // AD03 — guardian-account-matches. The enrol form calls this BEFORE saving
+  // so the office can link a new student to an EXISTING guardian instead of
+  // silently creating a duplicate guardian record with the same name. A
+  // guardian matches on phone (the unique handle, normalised to digits) or
+  // email; the response names each match so the form can offer "add this
+  // student to {name}".
+  if (seg[0] === 'guardian-account-matches' && m === 'POST') {
+    const phone = normalizePhone((body && body.guardianPhone) || '');
+    const email = normalizeEmail((body && body.guardianEmail) || '');
+    if (!phone && !email) {
+      return { ok: false, error: 'Enter a guardian phone or email to search for an existing account.' };
+    }
+    const matches = GUARDIANS.filter((g) => {
+      const samePhone = phone && normalizePhone(g.phone) === phone;
+      const sameEmail = email && normalizeEmail(g.email) === email;
+      return samePhone || sameEmail;
+    }).map((g) => ({
+      id: g.id,
+      fullName: g.fullName,
+      phone: g.phone,
+      email: g.email,
+      relationship: g.relationship,
+      childrenCount: g.childrenCount,
+    }));
+    return { ok: true, matches };
+  }
+
   // AD03/AD33 — enrol one student (the import loop reuses this same route).
   // Values are re-cleaned here so hand-built or CSV-sourced rows arrive
   // trimmed and normalized even if a caller skips the form.
+  //
+  // Guardian linking: if linkGuardianId points at an existing guardian, the
+  // student is added to that guardian's children (no duplicate account). If
+  // the phone/email already matches a guardian (without an explicit id), the
+  // existing guardian is reused too. Otherwise a brand-new guardian record is
+  // created so the student is enrol-able with a real guardian account from the
+  // first save — the old demo just stored the name on the student and never
+  // made a guardian, which is why two students with the same parent ended up
+  // with two "guardians" of the same name.
   if (seg[0] === 'student-enrolments' && m === 'POST') {
     const cls = (body && body.classLabel) || 'JSS1 A';
+    const guardianName = cleanText(body && body.guardianName);
+    const guardianPhone = normalizePhone((body && body.guardianPhone) || '');
+    // Store the phone in the same spaced canonical form the seeded guardians
+    // use ("+234 803 111 2233") so the student profile and exports read the
+    // same way everywhere, and so a second enrol with the same number links.
+    const guardianPhoneDisplay = canonicalPhone(guardianPhone) || guardianPhone;
+    const guardianEmail = normalizeEmail((body && body.guardianEmail) || '');
     const student = {
       id: nextStudentId,
       fullName: `${cleanText(body && body.firstName)} ${cleanText(body && body.lastName)}`.trim(),
@@ -1182,14 +1243,70 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       dateOfBirth: cleanText(body && body.dateOfBirth),
       gender: (body && body.gender) || '',
       admissionDate: todayLabel(),
-      guardianName: cleanText(body && body.guardianName),
-      guardianPhone: normalizePhone((body && body.guardianPhone) || ''),
-      guardianEmail: normalizeEmail((body && body.guardianEmail) || ''),
+      guardianName,
+      guardianPhone: guardianPhoneDisplay,
+      guardianEmail,
       address: cleanText(body && body.address),
     };
     nextStudentId += 1;
     nextAdmissionNumber += 1;
     STUDENTS.push(student);
+
+    // Resolve the guardian: explicit linkGuardianId wins; otherwise match by
+    // phone, then email; otherwise create a new guardian account.
+    let guardian = null;
+    if (body && body.linkGuardianId) {
+      guardian = GUARDIANS.find((g) => g.id === body.linkGuardianId) || null;
+    }
+    if (!guardian && guardianPhone) {
+      guardian = GUARDIANS.find((g) => normalizePhone(g.phone) === guardianPhone) || null;
+    }
+    if (!guardian && guardianEmail) {
+      guardian = GUARDIANS.find((g) => normalizeEmail(g.email) === guardianEmail) || null;
+    }
+    if (guardian) {
+      // Link: add this student as a child of the existing guardian (and keep
+      // the student's guardianName in sync with the account). Never duplicate.
+      if (!guardian.children.some((c) => c.studentId === student.id)) {
+        guardian.children.push({
+          studentId: student.id,
+          name: student.fullName,
+          classLabel: student.classLabel,
+          relationship: (body && body.relationship) || guardian.relationship || 'Guardian',
+        });
+        guardian.childrenCount = guardian.children.length;
+      }
+      if (guardianName && guardianName !== guardian.fullName) {
+        // Keep the name on the student record as typed, but the linked account
+        // keeps its own name (the office may have typed a nickname).
+        student.guardianName = guardianName;
+      } else {
+        student.guardianName = guardian.fullName;
+      }
+      student.guardianPhone = guardian.phone;
+      student.guardianEmail = guardian.email;
+    } else if (guardianName) {
+      // No existing match — create a new guardian account so the parent can
+      // sign in to the Parent app and see this child.
+      const newGuardian = {
+        id: `gd-${Date.now()}`,
+        fullName: guardianName,
+        phone: guardianPhoneDisplay,
+        email: guardianEmail,
+        relationship: (body && body.relationship) || 'Guardian',
+        status: 'Invited',
+        childrenCount: 1,
+        children: [
+          {
+            studentId: student.id,
+            name: student.fullName,
+            classLabel: student.classLabel,
+            relationship: (body && body.relationship) || 'Guardian',
+          },
+        ],
+      };
+      GUARDIANS.push(newGuardian);
+    }
     return student;
   }
 
@@ -1282,7 +1399,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     if (m === 'POST') {
       const parsed = parseClassLabel(body && body.classLabel);
       if (!parsed) return { ok: false, error: classLabelFormatError() };
-      if (liveClassNames().includes(parsed.label)) {
+      if (classLabelExists(parsed.label)) {
         return { ok: false, error: `${parsed.label} already exists — pick a different suffix.` };
       }
       const cls = {
@@ -1311,8 +1428,7 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     if (m === 'PATCH') {
       const parsed = parseClassLabel(body && body.classLabel);
       if (!parsed) return { ok: false, error: classLabelFormatError() };
-      const clash = CLASSES.find((c) => c.id !== cls.id && c.classLabel === parsed.label);
-      if (clash) {
+      if (classLabelExists(parsed.label, cls.id)) {
         return { ok: false, error: `${parsed.label} already exists — pick a different suffix.` };
       }
       const old = cls.classLabel;
@@ -1726,13 +1842,29 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
           error: `${classLabel} already has a timetable in progress — open it from the drafts list.`,
         };
       }
+      // When re-opening a class whose only timetable is PUBLISHED, seed the new
+      // editable draft with the published week's slots so the fields are NOT
+      // empty — the office sees the periods they just published and edits
+      // them in place. The published record stays as the historical copy.
+      const published = TIMETABLE_DRAFTS.find(
+        (d) => d.classLabel === classLabel && d.status === 'Published',
+      );
+      const seed = Array.isArray(body && body.seedSlots) && body.seedSlots.length > 0;
+      const slots = seed
+        ? body.seedSlots.map((s) => ({ ...s }))
+        : makeSlots(classLabel, 0);
       const draft = {
         id: `ttd-${Date.now()}`,
         classLabel,
         term: '2026/2027 · First Term',
         status: 'Draft',
-        slots: makeSlots(classLabel, 0),
+        slots,
       };
+      if (published && seed) {
+        // Mark the inherited-from-published state so the review/publish flow
+        // and the View can show "this is an edit of the published timetable".
+        draft.editedFrom = published.id;
+      }
       TIMETABLE_DRAFTS.push(draft);
       return { ok: true, draft };
     }
@@ -2226,6 +2358,11 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     preview.rows.forEach((r) => {
       const student = STUDENTS.find((st) => String(st.id) === String(r.studentId));
       if (!student) return;
+      // Defence in depth: a withdrawn or already-graduated student never
+      // moves here, even if a row for them slipped into the preview. They
+      // are filtered out at compute time, but a stale decision set by the
+      // office before a withdrawal must not graduate a withdrawn student.
+      if (student.status !== 'Active') return;
       if (r.decision === 'Promote') {
         student.classLabel = nextClassOf(student.classLabel);
         student.department = student.classLabel.startsWith('JSS') ? null : student.department;
@@ -2417,6 +2554,11 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   if (complaint && seg.length === 2 && m === 'GET') return complaint;
   if (complaint && seg[2] === 'replies') {
     if (m === 'GET') return { items: complaint.replies };
+    // A CLOSED complaint refuses new replies — the office closes a case to end
+    // the conversation, so it must not silently accept one. Reopen first.
+    if (complaint.status === 'Closed') {
+      return { ok: false, error: 'This case is closed — reopen it before sending a new reply.' };
+    }
     complaint.replies.push({
       id: `r-${complaint.replies.length + 1}`,
       author: 'Admin (office)',
@@ -2638,6 +2780,11 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     seg[0] === 'conversations' && seg[1] ? CONVERSATIONS.find((c) => c.id === seg[1]) : null;
   if (conversation && seg[2] === 'messages') {
     if (m === 'GET') return paginate(conversation.messages, query.page, 20);
+    // A closed/blocked thread refuses new replies — the office closes a thread
+    // to stop further messages, so it must not silently accept one.
+    if (conversation.closed) {
+      return { ok: false, error: 'This thread is closed — reopen it to send a new message.' };
+    }
     conversation.messages.push({
       id: `m-${conversation.messages.length + 1}`,
       author: 'Admin (office)',
@@ -2650,6 +2797,16 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   if (conversation && seg[2] === 'read' && m === 'PUT') {
     conversation.unread = 0;
     return { ok: true };
+  }
+  // Close (block) and reopen a conversation thread. Closing is a soft state —
+  // the history stays, but new replies are refused until the office reopens it.
+  if (conversation && seg[2] === 'close' && m === 'POST') {
+    conversation.closed = true;
+    return { ok: true, conversation };
+  }
+  if (conversation && seg[2] === 'reopen' && m === 'POST') {
+    conversation.closed = false;
+    return { ok: true, conversation };
   }
 
   // AD28 — notices

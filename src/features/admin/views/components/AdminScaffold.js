@@ -8,10 +8,14 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { colors, typography, spacing } from '../theme';
+import useSchoolContext from './useSchoolContext';
 
 export default function AdminScaffold({
-  contextTop = 'Greenfield Secondary',
-  contextBottom = '2026/2027 · First Term',
+  // The banner reads the LIVE school name from settings by default, so a name
+  // change in AD10 follows onto every screen. A screen may still override
+  // (e.g. a cross-school context) by passing these props explicitly.
+  contextTop,
+  contextBottom,
   eyebrow,
   title,
   subtitle,
@@ -24,6 +28,9 @@ export default function AdminScaffold({
   children,
 }) {
   const navigation = useNavigation();
+  const schoolContext = useSchoolContext();
+  const bannerTop = contextTop !== undefined ? contextTop : schoolContext.schoolName;
+  const bannerBottom = contextBottom !== undefined ? contextBottom : schoolContext.contextBottom;
   // Sub-pages show a back arrow; tab roots have nowhere to go back to.
   const canGoBack = navigation.canGoBack() || Boolean(onBack);
 
@@ -39,8 +46,8 @@ export default function AdminScaffold({
         </Pressable>
       ) : null}
       <View style={styles.context}>
-        <Text style={styles.contextTop}>{contextTop}</Text>
-        <Text style={styles.contextBottom}>{contextBottom}</Text>
+        <Text style={styles.contextTop}>{bannerTop}</Text>
+        <Text style={styles.contextBottom}>{bannerBottom}</Text>
       </View>
 
       <View style={styles.header}>

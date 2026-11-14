@@ -216,6 +216,8 @@ export const endpoints = {
     conversationById: 'conversations/{conversationId}', // GET
     messages: 'conversations/{conversationId}/messages', // GET/POST
     markRead: 'conversations/{conversationId}/read', // PUT
+    close: 'conversations/{conversationId}/close', // POST — close/block a thread
+    reopen: 'conversations/{conversationId}/reopen', // POST — reopen a closed thread
   },
 
   //  AD31/AD32 — Complaints

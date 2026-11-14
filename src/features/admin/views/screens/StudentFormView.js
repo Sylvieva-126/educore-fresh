@@ -4,7 +4,7 @@
  * SelectSheet fields (gender, class, department) match the AD02 dropdowns.
  */
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
 import SelectSheet from '../components/SelectSheet';
 import LabelledField from '../components/LabelledField';
@@ -120,6 +120,53 @@ export default function StudentFormView({ route, navigation }) {
       </View>
 
       <Text style={styles.section}>Parent / guardian</Text>
+      {!isEdit && state.guardianSearchState === 'done' && state.guardianMatches.length > 0 ? (
+        <View style={styles.guardianMatches}>
+          <Text style={styles.matchHint}>
+            {state.guardianMatches.length === 1
+              ? 'An existing guardian matches this phone/email.'
+              : `${state.guardianMatches.length} existing guardians match. Pick one to add this student to their account, or create a new guardian.`}
+          </Text>
+          {state.guardianMatches.map((g) => (
+            <Pressable
+              key={g.id}
+              style={[
+                styles.matchRow,
+                state.linkGuardianId === g.id && styles.matchRowActive,
+              ]}
+              onPress={() => presenter.onLinkGuardian(g.id)}
+            >
+              <View style={styles.matchMain}>
+                <Text style={styles.matchName}>{g.fullName}</Text>
+                <Text style={styles.matchMeta}>
+                  {g.phone || '—'} · {g.email || '—'} · {g.childrenCount} child
+                  {g.childrenCount === 1 ? '' : 'ren'}
+                </Text>
+              </View>
+              {state.linkGuardianId === g.id ? (
+                <Text style={styles.matchCheck}>✓ linked</Text>
+              ) : (
+                <Text style={styles.matchLink}>Link</Text>
+              )}
+            </Pressable>
+          ))}
+          {state.linkGuardianId ? (
+            <Pressable onPress={() => presenter.onCreateNewGuardian()} hitSlop={8}>
+              <Text style={styles.newGuardianLink}>
+                Instead, create a brand-new guardian account
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+      {!isEdit &&
+      state.guardianSearchState === 'done' &&
+      state.guardianMatches.length === 0 &&
+      (v.guardianPhone || v.guardianEmail) ? (
+        <Text style={styles.noMatchHint}>
+          No existing guardian matches — a new guardian account will be created for this student.
+        </Text>
+      ) : null}
       <LabelledField
         label="Guardian name"
         value={v.guardianName}
@@ -197,4 +244,30 @@ const styles = StyleSheet.create({
   hint: { ...typography.label, color: colors.muted, marginTop: spacing.md },
   formError: { ...typography.label, color: '#a33a2a', marginBottom: spacing.sm },
   notice: { ...typography.label, color: colors.muted, marginTop: spacing.sm, textAlign: 'center' },
+  // Existing-guardian picker (enrol mode).
+  guardianMatches: {
+    backgroundColor: colors.white,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  matchHint: { ...typography.label, color: colors.primary, marginBottom: spacing.xs },
+  noMatchHint: { ...typography.label, color: colors.muted, marginBottom: spacing.sm },
+  matchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    borderRadius: 8,
+    gap: spacing.sm,
+  },
+  matchRowActive: { backgroundColor: colors.positive },
+  matchMain: { flex: 1 },
+  matchName: { ...typography.body, fontWeight: '600' },
+  matchMeta: { ...typography.label, color: colors.muted, marginTop: 2 },
+  matchLink: { ...typography.label, color: colors.primary },
+  matchCheck: { ...typography.label, color: colors.primary, fontWeight: '600' },
+  newGuardianLink: { ...typography.label, color: colors.primary, marginTop: spacing.xs },
 });

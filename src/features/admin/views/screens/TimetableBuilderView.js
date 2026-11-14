@@ -11,16 +11,14 @@ import RecordList from '../components/RecordList';
 import SelectSheet from '../components/SelectSheet';
 import { LoadingView, ErrorState, useActionErrorAlert } from '../components/FeedbackViews';
 import { PrimaryButton, SecondaryButton } from './AdminHomeView';
-import { TimetableBuilderPresenter } from '../../presenters/TimetableBuilderPresenter';
+import { TimetableBuilderPresenter, MAX_PERIODS_PER_DAY } from '../../presenters/TimetableBuilderPresenter';
 import { TimetableModel, AcademicStructureModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const ACTIVITIES = ['Break', 'Sports / PE', 'Study Time', 'Assembly', 'Clubs & Societies'].map(
   (a) => ({ label: a, value: a }),
-);
-
-export default function TimetableBuilderView({ navigation, route }) {
+);export default function TimetableBuilderView({ navigation, route }) {
   const [presenter] = useState(() => new TimetableBuilderPresenter(TimetableModel, AcademicStructureModel));
   const [state, setState] = useState(presenter.initialState);
   const loadedOnce = useRef(false);
@@ -104,13 +102,37 @@ export default function TimetableBuilderView({ navigation, route }) {
       return;
     }
     if (slot.activity) {
+      // An activity period can be changed to a SUBJECT (or a different
+      // activity), or removed — symmetric with the subject menu, so the office
+      // is not stuck with an activity they can only delete.
       Alert.alert(`Period ${slot.period} — ${slot.activity}`, 'What do you want to change?', [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Change time', onPress: () => openTimeEditor(slot) },
         {
-          text: 'Remove period',
-          style: 'destructive',
-          onPress: () => presenter.removeSlot(slot.day, slot.period),
+          text: 'More…',
+          onPress: () =>
+            Alert.alert(`Period ${slot.period} — ${slot.activity}`, 'Change the content or remove it?', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Remove period',
+                style: 'destructive',
+                onPress: () => presenter.removeSlot(slot.day, slot.period),
+              },
+              {
+                text: 'Change to subject',
+                onPress: () => {
+                  setPendingSlot({ day: slot.day, period: slot.period });
+                  setSubjectSheet(true);
+                },
+              },
+              {
+                text: 'Change activity',
+                onPress: () => {
+                  setPendingSlot({ day: slot.day, period: slot.period });
+                  setActivitySheet(true);
+                },
+              },
+            ]),
         },
       ]);
       return;
@@ -266,7 +288,7 @@ export default function TimetableBuilderView({ navigation, route }) {
                   onPressItem={(row) => onSlotPress(row.raw)}
                   emptyText=""
                 />
-                {daySlots.length < 8 && draft.status !== 'Published' ? (
+                {daySlots.length < MAX_PERIODS_PER_DAY && draft.status !== 'Published' ? (
                   <View style={styles.addWrap}>
                     <SecondaryButton
                       label={`+ Add a period on ${day}`}

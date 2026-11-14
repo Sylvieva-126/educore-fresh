@@ -6,13 +6,14 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import AdminScaffold from '../components/AdminScaffold';
+import StatusBadge from '../components/StatusBadge';
 import { LoadingView, EmptyState, ErrorState } from '../components/FeedbackViews';
-import { PrimaryButton } from './AdminHomeView';
+import { PrimaryButton, SecondaryButton } from './AdminHomeView';
 import { ConversationPresenter } from '../../presenters/ConversationPresenter';
 import { MessagesModel } from '../../models';
 import { colors, typography, spacing } from '../theme';
 
-export default function ConversationView({ route }) {
+export default function ConversationView({ route, navigation }) {
   const [presenter] = useState(() => new ConversationPresenter(MessagesModel));
   const [state, setState] = useState(presenter.initialState);
   const [replyText, setReplyText] = useState('');
@@ -25,6 +26,7 @@ export default function ConversationView({ route }) {
   }, [presenter, conversationId]);
 
   const c = state.conversation;
+  const isClosed = Boolean(c && c.closed);
 
   if (!conversationId) {
     return (
@@ -50,9 +52,19 @@ export default function ConversationView({ route }) {
 
       {state.status === 'content' ? (
         <View>
+          {isClosed ? (
+            <View style={styles.closedBanner}>
+              <StatusBadge label="Closed" tone="muted" />
+              <Text style={styles.closedHint}>
+                This thread is closed — replies are blocked. Reopen it to continue the conversation.
+              </Text>
+            </View>
+          ) : null}
+          {state.notice ? <Text style={styles.notice}>{state.notice}</Text> : null}
+
           {state.messages.length === 0 ? (
             <Text style={styles.empty}>
-              No messages yet — write the first one below.
+              No messages yet — {isClosed ? 'reopen the thread and ' : ''}write the first one below.
             </Text>
           ) : (
             state.messages.map((m) => (
@@ -67,23 +79,43 @@ export default function ConversationView({ route }) {
           {state.errorText && state.replyFailed ? (
             <Text style={styles.error}>{state.errorText}</Text>
           ) : null}
-          <TextInput
-            style={styles.input}
-            multiline
-            placeholder="Write a message…"
-            placeholderTextColor={colors.muted}
-            value={replyText}
-            onChangeText={setReplyText}
-          />
-          <View style={styles.sendBtn}>
-            <PrimaryButton
-              label={state.sending ? 'Sending…' : 'Send message'}
-              disabled={!replyText.trim() || state.sending}
-              onPress={() => {
-                presenter.onSend(replyText);
-                setReplyText('');
-              }}
-            />
+          {!isClosed ? (
+            <>
+              <TextInput
+                style={styles.input}
+                multiline
+                placeholder="Write a message…"
+                placeholderTextColor={colors.muted}
+                value={replyText}
+                onChangeText={setReplyText}
+              />
+              <View style={styles.sendBtn}>
+                <PrimaryButton
+                  label={state.sending ? 'Sending…' : 'Send message'}
+                  disabled={!replyText.trim() || state.sending}
+                  onPress={() => {
+                    presenter.onSend(replyText);
+                    setReplyText('');
+                  }}
+                />
+              </View>
+            </>
+          ) : null}
+
+          <View style={styles.threadActions}>
+            {isClosed ? (
+              <SecondaryButton
+                label={state.savingThread ? 'Reopening…' : 'Reopen thread'}
+                disabled={state.savingThread}
+                onPress={() => presenter.reopenConversation()}
+              />
+            ) : (
+              <SecondaryButton
+                label={state.savingThread ? 'Closing…' : 'Close / block thread'}
+                disabled={state.savingThread}
+                onPress={() => presenter.closeConversation()}
+              />
+            )}
           </View>
         </View>
       ) : null}
@@ -102,7 +134,19 @@ const styles = StyleSheet.create({
   time: { ...typography.label, color: colors.muted, marginTop: 2 },
   empty: { ...typography.body, color: colors.muted, marginTop: spacing.sm },
   error: { ...typography.label, color: '#a33a2a', marginBottom: spacing.sm },
+  notice: { ...typography.label, color: colors.primary, marginBottom: spacing.sm },
+  closedBanner: {
+    backgroundColor: colors.white,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  closedHint: { ...typography.label, color: colors.muted },
   sendBtn: { marginTop: spacing.md },
+  threadActions: { marginTop: spacing.md },
   input: {
     ...typography.input,
     backgroundColor: colors.white,

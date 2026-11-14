@@ -47,6 +47,35 @@ export default function ResultsReviewView({ navigation }) {
     );
   };
 
+  // A returned package shows the reason it came back and lets the office send
+  // it back again or just view the reason — the old screen did nothing on tap,
+  // so the reason was invisible and the package looked stuck.
+  const viewReturned = (pkg) => {
+    Alert.alert(
+      `${pkg.classLabel} · ${pkg.subject} — returned for corrections`,
+      `Reason: ${pkg.detail || 'No reason was recorded.'}\n\nTeacher: ${pkg.teacherName}`,
+      [
+        { text: 'Close', style: 'cancel' },
+        {
+          text: 'Send back again',
+          style: 'destructive',
+          onPress: () => presenter.returnPackage(pkg.id, 'Still needs corrections — see the notes.'),
+        },
+      ],
+    );
+  };
+
+  // An approved package is signed off — there is nothing to return, but the
+  // office should still see WHY it was approved and that it is waiting for the
+  // report batch to be published (instead of the old "tap does nothing").
+  const viewApproved = (pkg) => {
+    Alert.alert(
+      `${pkg.classLabel} · ${pkg.subject} — approved`,
+      `${pkg.detail || 'Signed off.'}\n\nIt will appear on the report card when its batch is published below.`,
+      [{ text: 'Close', style: 'cancel' }],
+    );
+  };
+
   const confirmPublish = (batch) => {
     Alert.alert(
       'Publish these report cards?',
@@ -99,7 +128,8 @@ export default function ResultsReviewView({ navigation }) {
 
           <Text style={styles.section}>Mark packages</Text>
           <Text style={styles.hint}>
-            Tap a submitted package to return it to the teacher; returned packages wait on them.
+            Tap a submitted package to return it; tap a returned package to see the reason and send
+            it back again; tap an approved package to see its sign-off.
           </Text>
           <RecordList
             items={state.packages.map((p) => ({
@@ -111,6 +141,8 @@ export default function ResultsReviewView({ navigation }) {
             }))}
             onPressItem={(row) => {
               if (row.raw.status === 'Submitted') confirmReturn(row.raw);
+              else if (row.raw.status === 'ReturnedForCorrections') viewReturned(row.raw);
+              else if (row.raw.status === 'Approved') viewApproved(row.raw);
             }}
             emptyText="No mark packages yet."
           />

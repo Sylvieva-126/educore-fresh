@@ -24,7 +24,7 @@ const SESSIONS = ['2026/2027', '2025/2026'].map((s) => ({ label: s, value: s }))
 const DEPARTMENTS = ['Science', 'Humanities / Arts', 'Business / Commercial']
   .map((d) => ({ label: d, value: d }))
   .concat([{ label: 'All departments', value: 'all' }]);
-const STATUSES = ['Active', 'Withdrawn', 'Completed']
+const STATUSES = ['Active', 'Withdrawn', 'Graduated', 'Completed']
   .map((s) => ({ label: s, value: s }))
   .concat([{ label: 'All statuses', value: 'all' }]);
 const IMPORT_EXPORT_OPTIONS = [

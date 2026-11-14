@@ -10,9 +10,21 @@ const BASE_TIMES = [
   '08:00 – 08:40', '08:45 – 09:25', '09:30 – 10:10',
   '10:40 – 11:20', '11:25 – 12:05', '12:10 – 12:50',
 ];
-const EXTRA_TIMES = { 7: '12:55 – 13:35', 8: '13:40 – 14:20' };
+// Extra periods 7–10: up to 10 periods per day (raised from 8). The first two
+// extras are activity-friendly lunch/afternoon slots; 9 and 10 cover a full
+// afternoon. periodTime falls back to 'TBD' past this list, so the office can
+// still type a custom time via the time editor for any period number.
+const EXTRA_TIMES = {
+  7: '12:55 – 13:35',
+  8: '13:40 – 14:20',
+  9: '14:25 – 15:05',
+  10: '15:10 – 15:50',
+};
 
-/** Six fixed teaching periods, then up to two activity slots per day. */
+/** The maximum number of periods a day may hold. */
+export const MAX_PERIODS_PER_DAY = 10;
+
+/** Six fixed teaching periods, then up to four activity/teaching slots. */
 function periodTime(period) {
   return BASE_TIMES[period - 1] || EXTRA_TIMES[period] || 'TBD';
 }
@@ -68,15 +80,30 @@ export class TimetableBuilderPresenter {
     }
   }
 
-  /** Open the class's in-progress draft, or start one. */
+  /** Open the class's in-progress draft, or start one. When the class only
+      has a PUBLISHED timetable, the new draft is seeded with the published
+      week's slots so re-opening looks like EDITING the published timetable
+      (the office expects to see the periods they just published, not a blank
+      week). The published record stays untouched until the new draft is
+      re-published. */
   async openForClass(classLabel) {
     this._setState({ status: 'loading', notice: null, errorText: null });
     try {
       const page = await this.model.drafts();
       const existing = page.items.find((d) => d.classLabel === classLabel && d.status !== 'Published');
-      const draft = existing
-        ? (await this.model.draftById(existing.id)).draft
-        : (await this.model.createDraft({ classLabel })).draft;
+      let draft;
+      if (existing) {
+        draft = (await this.model.draftById(existing.id)).draft;
+      } else {
+        // No in-progress draft. If a PUBLISHED one exists, seed the new draft
+        // with its slots so the fields are NOT empty on re-open.
+        const published = page.items.find((d) => d.classLabel === classLabel && d.status === 'Published');
+        const createBody = { classLabel };
+        if (published) {
+          createBody.seedSlots = published.slots;
+        }
+        draft = (await this.model.createDraft(createBody)).draft;
+      }
       const [subjectsPage, teachersPage] = await Promise.all([
         this.structureModel.subjects(),
         this.model.assignmentCandidates(),
@@ -105,12 +132,16 @@ export class TimetableBuilderPresenter {
     }
   }
 
-  /** Fill one period and save the whole draft (small payloads, demo-friendly). */
+  /** Fill one period and save the whole draft (small payloads, demo-friendly).
+      Changing an activity period to a subject clears the activity field too,
+      so the server's "either a subject or an activity, not both" rule passes. */
   async fillSlot(day, period, subject, teacherName) {
     const draft = this.state.draft;
     if (!draft || this.state.saving) return;
     const slots = draft.slots.map((s) =>
-      s.day === day && s.period === period ? { ...s, subject, teacherName } : s,
+      s.day === day && s.period === period
+        ? { ...s, subject, teacherName, activity: null }
+        : s,
     );
     this._setState({ saving: true, errorText: null });
     try {
@@ -189,7 +220,7 @@ export class TimetableBuilderPresenter {
     const draft = this.state.draft;
     if (!draft || this.state.saving) return;
     const nextPeriod = draft.slots.filter((s) => s.day === day).length + 1;
-    if (nextPeriod > 8) return;
+    if (nextPeriod > MAX_PERIODS_PER_DAY) return;
     const slots = [
       ...draft.slots,
       {

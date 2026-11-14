@@ -102,24 +102,32 @@ export default function ComplaintDetailView({ route, navigation }) {
               </Text>
             ))
           )}
-          <TextInput
-            style={styles.input}
-            multiline
-            placeholder="Write a reply…"
-            placeholderTextColor={colors.muted}
-            value={replyText}
-            onChangeText={setReplyText}
-          />
-          <View style={styles.sendBtn}>
-            <PrimaryButton
-              label={state.saving === 'reply' ? 'Sending…' : 'Send reply'}
-              disabled={!replyText.trim() || Boolean(state.saving)}
-              onPress={() => {
-                presenter.onReply(replyText);
-                setReplyText('');
-              }}
-            />
-          </View>
+          {c.status === 'Closed' ? (
+            <Text style={styles.closedHint}>
+              This case is closed — replies are blocked. Reopen it below to send a new reply.
+            </Text>
+          ) : (
+            <>
+              <TextInput
+                style={styles.input}
+                multiline
+                placeholder="Write a reply…"
+                placeholderTextColor={colors.muted}
+                value={replyText}
+                onChangeText={setReplyText}
+              />
+              <View style={styles.sendBtn}>
+                <PrimaryButton
+                  label={state.saving === 'reply' ? 'Sending…' : 'Send reply'}
+                  disabled={!replyText.trim() || Boolean(state.saving)}
+                  onPress={() => {
+                    presenter.onReply(replyText);
+                    setReplyText('');
+                  }}
+                />
+              </View>
+            </>
+          )}
 
           <Text style={styles.section}>Internal notes</Text>
           <Text style={styles.hint}>Notes stay inside the office — guardians never see them.</Text>
@@ -163,11 +171,19 @@ export default function ComplaintDetailView({ route, navigation }) {
               disabled={Boolean(state.saving) || c.status === 'Resolved' || c.status === 'Closed'}
               onPress={() => presenter.onStateAction('resolve')}
             />
-            <SecondaryButton
-              label={state.saving === 'close' ? 'Saving…' : 'Close case'}
-              disabled={Boolean(state.saving) || c.status === 'Closed'}
-              onPress={confirmClose}
-            />
+            {c.status === 'Closed' ? (
+              <SecondaryButton
+                label={state.saving === 'reopen' ? 'Saving…' : 'Reopen case'}
+                disabled={Boolean(state.saving)}
+                onPress={() => presenter.onStateAction('reopen')}
+              />
+            ) : (
+              <SecondaryButton
+                label={state.saving === 'close' ? 'Saving…' : 'Close case'}
+                disabled={Boolean(state.saving) || c.status === 'Closed'}
+                onPress={confirmClose}
+              />
+            )}
           </View>
         </View>
       ) : null}
@@ -184,6 +200,7 @@ const styles = StyleSheet.create({
   line: { ...typography.body, marginBottom: spacing.xs },
   muted: { ...typography.body, color: colors.muted },
   hint: { ...typography.label, marginBottom: spacing.sm },
+  closedHint: { ...typography.label, color: colors.muted, marginTop: spacing.sm, marginBottom: spacing.sm, fontStyle: 'italic' },
   error: { ...typography.label, color: '#a33a2a', marginBottom: spacing.sm },
   input: {
     ...typography.input,

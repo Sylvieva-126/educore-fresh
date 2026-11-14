@@ -21,6 +21,10 @@ import {
 
 const CLASS_HELP = 'class must be one of: JSS1 A, JSS1 B, JSS2 A, JSS3 A, SSS1 A, SSS2 A, SSS3 A';
 
+// The export writes ONE row per student. The import reads these back BY COLUMN
+// NAME (the header row carries "fullName", "class", "guardianPhone"…), so an
+// exported file re-imports without the old "class must be one of…" error that
+// came from positional mapping. Columns match the live Java export shape.
 const EXPORT_COLUMNS = [
   { key: 'admissionNumber', header: 'admissionNumber' },
   { key: 'fullName', header: 'fullName' },
@@ -34,33 +38,101 @@ const EXPORT_COLUMNS = [
   { key: 'guardianEmail', header: 'guardianEmail' },
 ];
 
-export const IMPORT_CSV_HEADER =
-  'firstName,lastName,gender,dateOfBirth,class,department,guardianName,guardianPhone,guardianEmail';
+// The import accepts EITHER of these two column shapes (the export shape
+// below, or the manual first-name/last-name template). When a header row is
+// present, columns are read BY NAME, so an exported file re-imports cleanly
+// even though its order differs from the manual template. When there is no
+// header, the manual template order is assumed.
+const MANUAL_TEMPLATE_COLUMNS = [
+  'firstName',
+  'lastName',
+  'gender',
+  'dateOfBirth',
+  'class',
+  'department',
+  'guardianName',
+  'guardianPhone',
+  'guardianEmail',
+];
 
-function rowToStudent(fields) {
-  const [
-    firstName = '',
-    lastName = '',
-    gender = '',
-    dateOfBirth = '',
-    classLabel = '',
-    department = '',
-    guardianName = '',
-    guardianPhone = '',
-    guardianEmail = '',
-  ] = fields;
+// Split a single "fullName" cell ("Amara Okafor") into first/last the same way
+// the enrol form does — the first token is the first name, the rest is last.
+function splitFullName(full) {
+  const parts = String(full || '').trim().split(/\s+/);
+  return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || '' };
+}
+
+// Map one CSV row (an array of cells) to a student, using the header map when
+// available. Unknown header names are ignored, so the export's extra
+// admissionNumber/status columns do not break the import.
+function fieldsToStudent(fields, headerMap) {
+  const get = (key) => {
+    const lookup = String(key).toLowerCase();
+    if (headerMap && headerMap.has(lookup)) {
+      const idx = headerMap.get(lookup);
+      return idx < fields.length ? fields[idx] : '';
+    }
+    return '';
+  };
+  const hasHeader = Boolean(headerMap);
+  let firstName = '';
+  let lastName = '';
+  if (hasHeader) {
+    // Export uses fullName; the manual template uses firstName/lastName.
+    const fullName = get('fullName');
+    if (fullName) {
+      const split = splitFullName(fullName);
+      firstName = split.firstName;
+      lastName = split.lastName;
+    } else {
+      firstName = get('firstName');
+      lastName = get('lastName');
+    }
+  } else {
+    // Manual template order (no header).
+    [firstName, lastName] = [fields[0] || '', fields[1] || ''];
+  }
+  const classLabel = hasHeader ? get('class') : fields[4] || '';
   return {
     firstName: cleanText(firstName),
     lastName: cleanText(lastName),
-    gender: cleanText(gender),
-    dateOfBirth: cleanText(dateOfBirth),
+    gender: cleanText(hasHeader ? get('gender') : fields[2] || ''),
+    dateOfBirth: cleanText(hasHeader ? get('dateOfBirth') : fields[3] || ''),
     classLabel: normalizeClassLabel(classLabel),
-    department: cleanText(department),
-    guardianName: cleanText(guardianName),
-    guardianPhone: normalizePhone(guardianPhone),
-    guardianEmail: normalizeEmail(guardianEmail),
+    department: cleanText(hasHeader ? get('department') : fields[5] || ''),
+    guardianName: cleanText(hasHeader ? get('guardianName') : fields[6] || ''),
+    guardianPhone: normalizePhone(hasHeader ? get('guardianPhone') : fields[7] || ''),
+    guardianEmail: normalizeEmail(hasHeader ? get('guardianEmail') : fields[8] || ''),
   };
 }
+
+// Decide whether a row is a header: it must contain at least one known column
+// name AND no value that looks like real data (a name or class label). Header
+// names are matched CASE-INSENSITIVELY (export uses "fullName"/"classLabel",
+// the manual template uses "firstName"/"class") and the map stores lowercased
+// keys; get() looks them up lowercased too, so "FullName" and "fullName" both
+// resolve.
+function buildHeaderMap(cells) {
+  const known = new Set([
+    ...MANUAL_TEMPLATE_COLUMNS,
+    'fullName',
+    'admissionNumber',
+    'classLabel',
+    'class',
+    'status',
+  ].map((s) => s.toLowerCase()));
+  const matches = cells.filter((c) => known.has(String(c || '').trim().toLowerCase()));
+  if (matches.length < 2) return null; // not enough column names to be a header
+  const map = new Map();
+  cells.forEach((cell, idx) => {
+    const name = String(cell || '').trim().toLowerCase();
+    if (known.has(name)) map.set(name, idx);
+  });
+  return map;
+}
+
+export const IMPORT_CSV_HEADER =
+  'firstName,lastName,gender,dateOfBirth,class,department,guardianName,guardianPhone,guardianEmail';
 
 function validateRow(student) {
   if (!student.firstName) return 'firstName is empty';
@@ -115,14 +187,23 @@ export class ImportsExportsPresenter {
   /** Re-parse and re-validate on every paste/keystroke. */
   onPasteChange(text) {
     const parsed = parseCsv(text);
-    let dataRows = parsed;
-    if (parsed.length > 0 && /firstname/i.test(parsed[0][0] || '')) {
-      dataRows = parsed.slice(1); // tolerate the header line
+    if (parsed.length === 0) {
+      this._setState({ pasted: text, rows: [], problems: [], notice: null, errorText: null });
+      return;
     }
+    // Detect a header row: if the first row's cells match known column names,
+    // build a name→index map and read every data row BY COLUMN NAME. This is
+    // what makes an exported file re-import cleanly (the export order differs
+    // from the manual template order, and export uses "fullName" while the
+    // template uses firstName/lastName).
+    const headerMap = buildHeaderMap(parsed[0]);
+    const dataRows = headerMap ? parsed.slice(1) : parsed;
     const rows = [];
     const problems = [];
     dataRows.forEach((fields, index) => {
-      const student = rowToStudent(fields);
+      // Skip a trailing empty line that survived the trim filter.
+      if (fields.every((f) => !String(f || '').trim())) return;
+      const student = fieldsToStudent(fields, headerMap);
       const problem = validateRow(student);
       if (problem) problems.push({ rowNumber: index + 1, problem });
       else rows.push({ rowNumber: index + 1, student });
