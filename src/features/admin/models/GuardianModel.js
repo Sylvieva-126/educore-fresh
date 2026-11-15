@@ -26,6 +26,13 @@ export const GuardianModel = {
     return api.patch(endpoints.guardians.byId, { guardianId }, body);
   },
 
+  /** AD33 — create one guardian (and optionally link their first children) from
+      a CSV import row. Returns { guardian, unlinked } where unlinked is the
+      list of child names that did not match an active student. */
+  async createGuardian(body) {
+    return api.post(endpoints.guardians.create, null, body);
+  },
+
   /** Link a guardian to a child (with relationship, e.g. mother/father). */
   async createLink(body) {
     return api.post(endpoints.guardians.links, null, body);

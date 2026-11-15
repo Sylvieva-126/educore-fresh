@@ -36,6 +36,7 @@ import {
   cleanText,
   normalizeEmail,
   normalizePhone,
+  normalizeClassLabel,
   calendarDateError,
   nextClassOf,
   canonicalPhone,
@@ -1424,6 +1425,23 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
         return { ok: false, error: 'This student has already graduated.' };
       }
       student.status = 'Withdrawn';
+      // Defence in depth for Bug 10a: a withdrawn student must NOT appear on a
+      // promote-students page. New previews (built after this) already filter
+      // Withdrawn students via makePromotionRows, but a pre-existing preview
+      // holds a snapshot of its roster at build time — its rows array still
+      // carries this student until they are explicitly dropped here. Any
+      // non-Confirmed preview that lists this student is rewritten without them
+      // (and its summary is recomputed), so the office never sees a withdrawn
+      // student on a promote page again.
+      PROMOTION_PREVIEWS.forEach((preview) => {
+        if (preview.status === 'Confirmed') return;
+        const before = preview.rows.length;
+        const kept = preview.rows.filter((r) => String(r.studentId) !== String(student.id));
+        if (kept.length !== before) {
+          preview.rows = kept;
+          preview.summary = summariseRows(kept);
+        }
+      });
       return { ok: true };
     }
   }
@@ -2266,9 +2284,40 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
   if (seg[0] === 'mark-packages' && seg[2] === 'return' && m === 'POST') {
     const pkg = MARK_PACKAGES.find((p) => p.id === seg[1]);
     if (pkg) {
+      // An approved package can be re-opened for corrections too — the admin
+      // office is allowed to undo an approval before the report batch is
+      // published. After publishing, the batch (not the package) is the
+      // source of truth and is reopened separately.
       pkg.status = 'ReturnedForCorrections';
       pkg.detail = (body && body.reason) || 'Returned for corrections';
     }
+    return { ok: true };
+  }
+  // AD19 — admin signs off a submitted package. The office (the admin, "you")
+  // is the only role that approves; teachers only submit. A package may move
+  // from Submitted → Approved here, or from ReturnedForCorrections → Approved
+  // (when the teacher's resubmission is good). An already-approved package is
+  // a no-op idempotent success so a double-tap never errors.
+  if (seg[0] === 'mark-packages' && seg[2] === 'approve' && m === 'POST') {
+    const pkg = MARK_PACKAGES.find((p) => p.id === seg[1]);
+    if (!pkg) return { ok: false, error: 'Mark package not found.' };
+    if (pkg.status === 'Approved') return { ok: true };
+    if (pkg.status !== 'Submitted' && pkg.status !== 'ReturnedForCorrections') {
+      return {
+        ok: false,
+        error: `This package is ${pkg.status} — only a submitted or returned package can be approved.`,
+      };
+    }
+    pkg.status = 'Approved';
+    pkg.detail = (body && body.note) || 'Approved by the admin office';
+    AUDIT_LOG.unshift({
+      id: `aud-${Date.now()}`,
+      at: todayLabel(),
+      actor: 'Admin (you)',
+      category: 'Academics',
+      action: 'Approved a mark package',
+      detail: `${pkg.classLabel} · ${pkg.subject} — ${pkg.teacherName}`,
+    });
     return { ok: true };
   }
   if (seg[0] === 'class-report-batches' && seg.length === 1 && m === 'GET') {
@@ -2493,6 +2542,71 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
       return true;
     });
     return paginate(rows, query.page);
+  }
+  // AD33 — create one guardian (and optionally link their first children) from
+  // a CSV import row. The same validation the manual form uses is applied here
+  // so a row that slipped past the pre-flight is rejected with a clear message.
+  // Children are linked by name + class against ACTIVE students; a child that
+  // does not match is reported in `unlinked` so the office can fix the name.
+  if (seg[0] === 'guardians' && seg.length === 1 && m === 'POST') {
+    const fullName = cleanText(body && body.fullName);
+    if (!fullName) return { ok: false, error: 'Enter the guardian\'s full name.' };
+    const phone = normalizePhone((body && body.phone) || '');
+    const email = normalizeEmail((body && body.email) || '');
+    if (!phone && !email) {
+      return { ok: false, error: 'Enter at least a phone or an email for the guardian.' };
+    }
+    const phoneDisplay = canonicalPhone(phone) || phone;
+    const dup = GUARDIANS.find(
+      (g) =>
+        (phone && normalizePhone(g.phone) === phone) ||
+        (email && normalizeEmail(g.email) === email),
+    );
+    if (dup) return { ok: false, error: 'A guardian with this phone or email already exists.' };
+    const childrenReq = Array.isArray(body && body.children) ? body.children : [];
+    const linked = [];
+    const unlinked = [];
+    childrenReq.forEach((c) => {
+      const name = cleanText(c && c.name);
+      const cls = normalizeClassLabel(c && c.classLabel);
+      if (!name) return;
+      const student = STUDENTS.find(
+        (s) =>
+          s.status === 'Active' &&
+          String(s.fullName || '').toLowerCase() === name.toLowerCase() &&
+          (cls ? s.classLabel === cls : true),
+      );
+      if (student) {
+        linked.push({
+          studentId: student.id,
+          name: student.fullName,
+          classLabel: student.classLabel,
+          relationship: cleanText(body && body.relationship) || 'Guardian',
+        });
+      } else {
+        unlinked.push(name + (cls ? ` (${cls})` : ''));
+      }
+    });
+    const guardian = {
+      id: `gd-${Date.now()}`,
+      fullName,
+      phone: phoneDisplay,
+      email,
+      relationship: cleanText(body && body.relationship) || 'Guardian',
+      status: 'Active',
+      childrenCount: linked.length,
+      children: linked,
+    };
+    GUARDIANS.push(guardian);
+    AUDIT_LOG.unshift({
+      id: `aud-${Date.now()}`,
+      at: todayLabel(),
+      actor: 'Admin (you)',
+      category: 'Guardians',
+      action: 'Registered a guardian (CSV import)',
+      detail: `${guardian.fullName}${linked.length ? ` · ${linked.length} child(ren) linked` : ''}`,
+    });
+    return { ok: true, guardian, unlinked };
   }
   if (seg[0] === 'guardians' && seg.length === 2 && m === 'GET') {
     return GUARDIANS.find((g) => g.id === seg[1]) || null;

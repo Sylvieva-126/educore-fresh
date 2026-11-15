@@ -30,6 +30,13 @@ const ACTIVITIES = ['Break', 'Sports / PE', 'Study Time', 'Assembly', 'Clubs & S
   const [teacherSheet, setTeacherSheet] = useState(false);
   const [activitySheet, setActivitySheet] = useState(false);
   const [timeTarget, setTimeTarget] = useState(null); // { day, period, value }
+  // Action sheet for an EXISTING filled period. Android caps Alert.alert at
+  // THREE buttons; the old "More…" sub-alert packed four (remove, change
+  // subject, change activity, cancel) and the fourth button was silently
+  // dropped — so the office could change a subject period to a subject but
+  // never to an activity, and could not change an activity period at all.
+  // SelectSheet has no button-count cap, so every option is reachable.
+  const [slotActionSheet, setSlotActionSheet] = useState(null); // { slot } | null
   const initialClassId = route.params && route.params.classId;
 
   useEffect(() => {
@@ -73,75 +80,10 @@ const ACTIVITIES = ['Break', 'Sports / PE', 'Study Time', 'Assembly', 'Clubs & S
 
   const onSlotPress = (slot) => {
     if (!slot) return;
-    if (slot.subject) {
-      // Android shows at most three Alert buttons — keep every menu at three
-      // and put the rarer actions one tap deeper ("More…").
-      Alert.alert(`Period ${slot.period} — ${slot.subject}`, 'What do you want to change?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Change time', onPress: () => openTimeEditor(slot) },
-        {
-          text: 'More…',
-          onPress: () =>
-            Alert.alert(`Period ${slot.period} — ${slot.subject}`, 'Change the content or remove it?', [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Remove period',
-                style: 'destructive',
-                onPress: () => presenter.removeSlot(slot.day, slot.period),
-              },
-              {
-                text: 'Change subject',
-                onPress: () => {
-                  setPendingSlot({ day: slot.day, period: slot.period });
-                  setSubjectSheet(true);
-                },
-              },
-              {
-                text: 'Change to activity',
-                onPress: () => {
-                  setPendingSlot({ day: slot.day, period: slot.period });
-                  setActivitySheet(true);
-                },
-              },
-            ]),
-        },
-      ]);
-      return;
-    }
-    if (slot.activity) {
-      // An activity period can be changed to a SUBJECT (or a different
-      // activity), or removed — symmetric with the subject menu, so the office
-      // is not stuck with an activity they can only delete.
-      Alert.alert(`Period ${slot.period} — ${slot.activity}`, 'What do you want to change?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Change time', onPress: () => openTimeEditor(slot) },
-        {
-          text: 'More…',
-          onPress: () =>
-            Alert.alert(`Period ${slot.period} — ${slot.activity}`, 'Change the content or remove it?', [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Remove period',
-                style: 'destructive',
-                onPress: () => presenter.removeSlot(slot.day, slot.period),
-              },
-              {
-                text: 'Change to subject',
-                onPress: () => {
-                  setPendingSlot({ day: slot.day, period: slot.period });
-                  setSubjectSheet(true);
-                },
-              },
-              {
-                text: 'Change activity',
-                onPress: () => {
-                  setPendingSlot({ day: slot.day, period: slot.period });
-                  setActivitySheet(true);
-                },
-              },
-            ]),
-        },
-      ]);
+    if (slot.subject || slot.activity) {
+      // Filled period — open the bottom-sheet menu (every option is reachable,
+      // unlike Alert.alert which caps at three buttons on Android).
+      setSlotActionSheet({ slot });
       return;
     }
     Alert.alert(
@@ -173,6 +115,26 @@ const ACTIVITIES = ['Break', 'Sports / PE', 'Study Time', 'Assembly', 'Clubs & S
         },
       ],
     );
+  };
+
+  // One of the bottom-sheet options for an existing period was tapped.
+  // `pendingSlot` is set first so the subject/activity sheet knows which
+  // period to write to when its own picker is closed.
+  const onSlotAction = (action) => {
+    const slot = slotActionSheet && slotActionSheet.slot;
+    setSlotActionSheet(null);
+    if (!slot || !action) return;
+    if (action === 'time') {
+      openTimeEditor(slot);
+      return;
+    }
+    if (action === 'remove') {
+      presenter.removeSlot(slot.day, slot.period);
+      return;
+    }
+    setPendingSlot({ day: slot.day, period: slot.period });
+    if (action === 'subject') setSubjectSheet(true);
+    else if (action === 'activity') setActivitySheet(true);
   };
 
   const onSubjectPicked = (subject) => {
@@ -387,6 +349,35 @@ const ACTIVITIES = ['Break', 'Sports / PE', 'Study Time', 'Assembly', 'Clubs & S
         options={ACTIVITIES}
         onSelect={onActivityPicked}
         onClose={() => setActivitySheet(false)}
+      />
+      {/* Bottom-sheet menu for an EXISTING filled period — subject OR activity
+          periods both offer every option (change to the other type, change
+          within the same type, change the time, or remove the period). */}
+      <SelectSheet
+        visible={Boolean(slotActionSheet)}
+        label={
+          slotActionSheet
+            ? `${slotActionSheet.slot.day}, period ${slotActionSheet.slot.period} — change what?`
+            : 'Change what?'
+        }
+        options={[
+          { label: 'Change time', value: 'time' },
+          {
+            label: slotActionSheet && slotActionSheet.slot.subject
+              ? 'Change to another subject'
+              : 'Change to a subject',
+            value: 'subject',
+          },
+          {
+            label: slotActionSheet && slotActionSheet.slot.activity
+              ? 'Change to another activity'
+              : 'Change to an activity',
+            value: 'activity',
+          },
+          { label: 'Remove this period', value: 'remove' },
+        ]}
+        onSelect={(value) => onSlotAction(value)}
+        onClose={() => setSlotActionSheet(null)}
       />
 
       <Modal

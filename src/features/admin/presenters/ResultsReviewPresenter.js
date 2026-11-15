@@ -73,6 +73,25 @@ export class ResultsReviewPresenter {
     }
   }
 
+  /** Admin signs off a submitted (or resubmitted) package — it is Approved and
+      waits for its report batch to be published. Only the admin office does
+      this; teachers only submit. */
+  async approvePackage(packageId, note) {
+    if (this.state.busyId) return;
+    this._setState({ busyId: packageId, errorText: null });
+    try {
+      await this.model.approvePackage(packageId, { note });
+      await this.load();
+    } catch (error) {
+      this._setState({
+        errorText:
+          error instanceof ApiError ? error.message : 'The package could not be approved.',
+      });
+    } finally {
+      if (this._alive) this._setState({ busyId: null });
+    }
+  }
+
   /** Publish → report cards appear in the Student/Parent apps. */
   async publishBatch(batchId) {
     if (this.state.busyId) return;

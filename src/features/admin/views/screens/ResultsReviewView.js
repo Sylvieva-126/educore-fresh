@@ -32,16 +32,27 @@ export default function ResultsReviewView({ navigation }) {
     };
   }, [presenter, navigation]);
 
-  const confirmReturn = (pkg) => {
+  // A submitted package is the teacher's "done" handoff. The ADMIN (you) is
+  // the only role that approves — this is the answer to "who marks a result as
+  // approved, and how?". From a submitted package, choose Approve to sign it
+  // off (it then waits on its report batch to be published) OR Return to send
+  // it back for corrections. Both options are offered so the office does not
+  // have to guess.
+  const confirmSubmitted = (pkg) => {
     Alert.alert(
-      'Return this package?',
-      `${pkg.classLabel} · ${pkg.subject} goes back to ${pkg.teacherName} for corrections.`,
+      `${pkg.classLabel} · ${pkg.subject}`,
+      `Submitted by ${pkg.teacherName}. As the admin office, approve it (it is signed off and waits for its report batch to be published) or return it for corrections.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Return',
+          text: 'Return for corrections',
           style: 'destructive',
-          onPress: () => presenter.returnPackage(pkg.id, 'Check the flagged sheets and resubmit.'),
+          onPress: () =>
+            presenter.returnPackage(pkg.id, 'Check the flagged sheets and resubmit.'),
+        },
+        {
+          text: 'Approve',
+          onPress: () => presenter.approvePackage(pkg.id, 'Approved by the admin office'),
         },
       ],
     );
@@ -72,7 +83,15 @@ export default function ResultsReviewView({ navigation }) {
     Alert.alert(
       `${pkg.classLabel} · ${pkg.subject} — approved`,
       `${pkg.detail || 'Signed off.'}\n\nIt will appear on the report card when its batch is published below.`,
-      [{ text: 'Close', style: 'cancel' }],
+      [
+        { text: 'Close', style: 'cancel' },
+        {
+          text: 'Return for corrections',
+          style: 'destructive',
+          onPress: () =>
+            presenter.returnPackage(pkg.id, 'Reopened by the admin office for corrections.'),
+        },
+      ],
     );
   };
 
@@ -128,8 +147,10 @@ export default function ResultsReviewView({ navigation }) {
 
           <Text style={styles.section}>Mark packages</Text>
           <Text style={styles.hint}>
-            Tap a submitted package to return it; tap a returned package to see the reason and send
-            it back again; tap an approved package to see its sign-off.
+            Teachers submit a mark package when their sheets are done. The admin office (you) is the
+            only role that approves a package — tap a submitted one and choose Approve to sign it
+            off, or Return for corrections to send it back. An approved package waits here until its
+            report batch below is published.
           </Text>
           <RecordList
             items={state.packages.map((p) => ({
@@ -140,7 +161,7 @@ export default function ResultsReviewView({ navigation }) {
               raw: p,
             }))}
             onPressItem={(row) => {
-              if (row.raw.status === 'Submitted') confirmReturn(row.raw);
+              if (row.raw.status === 'Submitted') confirmSubmitted(row.raw);
               else if (row.raw.status === 'ReturnedForCorrections') viewReturned(row.raw);
               else if (row.raw.status === 'Approved') viewApproved(row.raw);
             }}

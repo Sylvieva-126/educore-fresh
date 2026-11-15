@@ -16,6 +16,13 @@ export const ResultsModel = {
     return api.post(endpoints.results.returnPackage, { packageId }, body);
   },
 
+  /** Admin signs off a submitted/returned package — it is Approved and waits
+      for its report batch to be published. Only the admin office approves;
+      teachers only submit. */
+  async approvePackage(packageId, body) {
+    return api.post(endpoints.results.approvePackage, { packageId }, body);
+  },
+
   /** Decide how absences are recorded in a package. */
   async resolveAbsences(packageId, body) {
     return api.post(endpoints.results.absenceResolutions, { packageId }, body);

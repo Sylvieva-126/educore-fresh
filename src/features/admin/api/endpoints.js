@@ -40,6 +40,7 @@ export const endpoints = {
   //  AD05/AD06 — Guardians
   guardians: {
     list: 'guardians', // GET  AD05
+    create: 'guardians', // POST AD33 (CSV import — guardian + optional child links)
     byId: 'guardians/{guardianId}', // GET/PATCH AD06
     links: 'guardian-links', // POST AD06
     linkById: 'guardian-links/{linkId}', // PATCH AD06
@@ -144,6 +145,7 @@ export const endpoints = {
     markPackages: 'mark-packages', // GET
     markPackageById: 'mark-packages/{packageId}', // GET
     returnPackage: 'mark-packages/{packageId}/return', // POST
+    approvePackage: 'mark-packages/{packageId}/approve', // POST — admin signs off
     absenceResolutions: 'mark-packages/{packageId}/absence-resolutions', // POST
     reportBatches: 'class-report-batches', // GET
     reportBatchById: 'class-report-batches/{batchId}', // GET
