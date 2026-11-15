@@ -156,6 +156,7 @@ export class ImportsExportsPresenter {
     this.model = studentModel;
     this._render = null;
     this._alive = false;
+    this._existingStudents = null; // cached snapshot for duplicate checks
     this.initialState = {
       pasted: '',
       rows: [], // valid, ready to import
@@ -184,13 +185,85 @@ export class ImportsExportsPresenter {
     this._render(this.state);
   }
 
+  /** Load every existing student ONCE so the duplicate check has the full
+      roster to compare against (not just other rows in the same paste). The
+      snapshot is cached for the life of the presenter so repeated pastes do
+      not re-walk the list. */
+  async _ensureExistingStudents() {
+    if (this._existingStudents) return this._existingStudents;
+    try {
+      this._existingStudents = await this.model.listAll();
+    } catch {
+      this._existingStudents = []; // offline/demo hiccup — fall back to row-only checks
+    }
+    return this._existingStudents;
+  }
+
+  /** Detect a duplicate of `student` against the existing roster OR the
+      other rows already accepted in this paste. Returns a human message or
+      null. A duplicate is the same guardian phone, the same guardian email,
+      or the same first+last name in the same class. */
+  _duplicateProblem(student, acceptedRows) {
+    const firstName = (student.firstName || '').toLowerCase();
+    const lastName = (student.lastName || '').toLowerCase();
+    const phone = student.guardianPhone || '';
+    const email = student.guardianEmail || '';
+    const classLabel = student.classLabel || '';
+    // 1) Against other accepted rows in the same paste.
+    for (const row of acceptedRows) {
+      const s = row.student;
+      if (phone && s.guardianPhone && s.guardianPhone === phone) {
+        return `duplicate student/data — same phone as row ${row.rowNumber}`;
+      }
+      if (email && s.guardianEmail && s.guardianEmail === email) {
+        return `duplicate student/data — same email as row ${row.rowNumber}`;
+      }
+      if (
+        firstName &&
+        lastName &&
+        classLabel &&
+        firstName === (s.firstName || '').toLowerCase() &&
+        lastName === (s.lastName || '').toLowerCase() &&
+        classLabel === s.classLabel
+      ) {
+        return `duplicate student/data — same name + class as row ${row.rowNumber}`;
+      }
+    }
+    // 2) Against the existing roster.
+    for (const ex of this._existingStudents || []) {
+      const exFirst = (ex.firstName || '').toLowerCase();
+      const exLast = (ex.lastName || '').toLowerCase();
+      const exName = (ex.fullName || ex.name || '').toLowerCase();
+      const exPhone = normalizePhone(ex.guardianPhone || '');
+      const exEmail = normalizeEmail(ex.guardianEmail || '');
+      const exClass = ex.classLabel || ex.className || '';
+      const sameName = firstName && lastName
+        ? (firstName === exFirst && lastName === exLast)
+        : `${firstName} ${lastName}`.trim() === exName;
+      if (phone && exPhone && exPhone === phone) {
+        return 'duplicate student/data — a student with this guardian phone already exists';
+      }
+      if (email && exEmail && exEmail === email) {
+        return 'duplicate student/data — a student with this guardian email already exists';
+      }
+      if (sameName && classLabel && classLabel === exClass) {
+        return 'duplicate student/data — a student with this name + class already exists';
+      }
+    }
+    return null;
+  }
+
   /** Re-parse and re-validate on every paste/keystroke. */
-  onPasteChange(text) {
+  async onPasteChange(text) {
     const parsed = parseCsv(text);
     if (parsed.length === 0) {
       this._setState({ pasted: text, rows: [], problems: [], notice: null, errorText: null });
       return;
     }
+    // Make sure the existing-roster snapshot is loaded before we judge any row
+    // — the duplicate check needs it to catch a pasted row that matches an
+    // existing student (not just another row in the same paste).
+    await this._ensureExistingStudents();
     // Detect a header row: if the first row's cells match known column names,
     // build a name→index map and read every data row BY COLUMN NAME. This is
     // what makes an exported file re-import cleanly (the export order differs
@@ -204,9 +277,20 @@ export class ImportsExportsPresenter {
       // Skip a trailing empty line that survived the trim filter.
       if (fields.every((f) => !String(f || '').trim())) return;
       const student = fieldsToStudent(fields, headerMap);
-      const problem = validateRow(student);
-      if (problem) problems.push({ rowNumber: index + 1, problem });
-      else rows.push({ rowNumber: index + 1, student });
+      const fieldProblem = validateRow(student);
+      if (fieldProblem) {
+        problems.push({ rowNumber: index + 1, problem: fieldProblem });
+        return;
+      }
+      // Duplicate check against already-accepted rows in this paste AND the
+      // existing roster. A row that duplicates an earlier accepted row is
+      // reported and dropped, so the import never creates twins.
+      const dupProblem = this._duplicateProblem(student, rows);
+      if (dupProblem) {
+        problems.push({ rowNumber: index + 1, problem: dupProblem });
+        return;
+      }
+      rows.push({ rowNumber: index + 1, student });
     });
     this._setState({ pasted: text, rows, problems, notice: null, errorText: null });
   }

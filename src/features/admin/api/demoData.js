@@ -1233,6 +1233,42 @@ export async function demoRequest({ path: route, method = 'GET', query = {}, bod
     // same way everywhere, and so a second enrol with the same number links.
     const guardianPhoneDisplay = canonicalPhone(guardianPhone) || guardianPhone;
     const guardianEmail = normalizeEmail((body && body.guardianEmail) || '');
+    // AD03/AD33 — server-side duplicate guard. The import front-end checks
+    // first (so the office sees the problem per row BEFORE import), but the
+    // backend MUST refuse too: a duplicate student is the same guardian
+    // phone, the same guardian email, or the same first+last name in the
+    // same class as an existing student. Linking a sibling to an existing
+    // guardian (linkGuardianId or matching phone) is NOT a duplicate — the
+    // guardian is shared, the student is new — so the duplicate rule never
+    // fires on phone/email alone when the names differ AND a link is set.
+    const newFirst = cleanText(body && body.firstName).toLowerCase();
+    const newLast = cleanText(body && body.lastName).toLowerCase();
+    const dupStudent = STUDENTS.find((s) => {
+      const sFirst = (s.firstName || String(s.fullName || '').split(' ')[0] || '').toLowerCase();
+      const sLast = (s.lastName || String(s.fullName || '').split(' ').slice(1).join(' ') || '').toLowerCase();
+      const sPhone = normalizePhone(s.guardianPhone || '');
+      const sEmail = normalizeEmail(s.guardianEmail || '');
+      const sameNameClass =
+        newFirst && newLast && newFirst === sFirst && newLast === sLast && cls === (s.classLabel || '');
+      const samePhone = guardianPhone && sPhone && sPhone === guardianPhone;
+      const sameEmail = guardianEmail && sEmail && sEmail === guardianEmail;
+      // A shared guardian is allowed when the office explicitly linked the
+      // sibling (linkGuardianId) OR the names are different — the duplicate
+      // rule only fires when the same phone/email comes with the SAME name,
+      // i.e. a true twin, not a second child.
+      if (samePhone || sameEmail) {
+        if (newFirst && newLast && newFirst === sFirst && newLast === sLast) return true;
+        return false; // sibling — different name, shared guardian is fine
+      }
+      return sameNameClass;
+    });
+    if (dupStudent) {
+      return {
+        ok: false,
+        error:
+          'duplicate student/data — same guardian phone, email, or name + class as an existing student.',
+      };
+    }
     const student = {
       id: nextStudentId,
       fullName: `${cleanText(body && body.firstName)} ${cleanText(body && body.lastName)}`.trim(),

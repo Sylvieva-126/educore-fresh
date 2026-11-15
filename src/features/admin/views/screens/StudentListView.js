@@ -24,7 +24,10 @@ const SESSIONS = ['2026/2027', '2025/2026'].map((s) => ({ label: s, value: s }))
 const DEPARTMENTS = ['Science', 'Humanities / Arts', 'Business / Commercial']
   .map((d) => ({ label: d, value: d }))
   .concat([{ label: 'All departments', value: 'all' }]);
-const STATUSES = ['Active', 'Withdrawn', 'Graduated', 'Completed']
+// The student ACCOUNT status is one of Active, Withdrawn or Graduated.
+// (A past term the student finished shows as "Completed" on the enrolment
+// history — that is a different concept and is not a student-list filter.)
+const STATUSES = ['Active', 'Withdrawn', 'Graduated']
   .map((s) => ({ label: s, value: s }))
   .concat([{ label: 'All statuses', value: 'all' }]);
 const IMPORT_EXPORT_OPTIONS = [

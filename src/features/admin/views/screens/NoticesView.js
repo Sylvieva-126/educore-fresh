@@ -136,7 +136,7 @@ export default function NoticesView({ navigation }) {
         visible={Boolean(actionNotice)}
         label={actionNotice ? actionNotice.title : 'Announcement'}
         options={
-          actionNotice && actionNotice.status === 'Draft'
+          actionNotice && (actionNotice.status === 'Draft' || actionNotice.status === 'Archived')
             ? [
                 { label: 'Publish now', value: 'publish' },
                 { label: 'Archive', value: 'archive' },

@@ -92,7 +92,7 @@ export default function ConversationView({ route, navigation }) {
               <View style={styles.sendBtn}>
                 <PrimaryButton
                   label={state.sending ? 'Sending…' : 'Send message'}
-                  disabled={!replyText.trim() || state.sending}
+                  disabled={!replyText.trim() || state.sending || state.savingThread}
                   onPress={() => {
                     presenter.onSend(replyText);
                     setReplyText('');

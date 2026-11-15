@@ -31,6 +31,23 @@ export const StudentModel = {
     return normalizePage(payload);
   },
 
+  /** AD33 , every student in the school (walks every page). Used by the import
+      duplicate check so a pasted row is caught when it matches an EXISTING
+      student's guardian phone, guardian email, or first+last name + class —
+      not just against other rows in the same paste. */
+  async listAll(filters = {}) {
+    const items = [];
+    let page = 1;
+    let pages = 1;
+    do {
+      const result = await this.listFull({ ...filters, page });
+      items.push(...(result.items || []));
+      pages = result.pages || 1;
+      page += 1;
+    } while (page <= pages);
+    return items;
+  },
+
   /** AD03 , the enrolment form definition (fields + options for this school). */
   async enrolmentForm() {
     return api.get(endpoints.students.enrolmentForm);

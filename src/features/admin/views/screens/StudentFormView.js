@@ -124,8 +124,11 @@ export default function StudentFormView({ route, navigation }) {
         <View style={styles.guardianMatches}>
           <Text style={styles.matchHint}>
             {state.guardianMatches.length === 1
-              ? 'An existing guardian matches this phone/email.'
-              : `${state.guardianMatches.length} existing guardians match. Pick one to add this student to their account, or create a new guardian.`}
+              ? 'An existing guardian matches this phone/email — pick it to add this student to their account.'
+              : `${state.guardianMatches.length} existing guardians match this phone/email. Pick one to add this student to their account.`}
+          </Text>
+          <Text style={styles.idHint}>
+            Phone and email are account IDs — a second account with the same ID is not created.
           </Text>
           {state.guardianMatches.map((g) => (
             <Pressable
@@ -150,13 +153,6 @@ export default function StudentFormView({ route, navigation }) {
               )}
             </Pressable>
           ))}
-          {state.linkGuardianId ? (
-            <Pressable onPress={() => presenter.onCreateNewGuardian()} hitSlop={8}>
-              <Text style={styles.newGuardianLink}>
-                Instead, create a brand-new guardian account
-              </Text>
-            </Pressable>
-          ) : null}
         </View>
       ) : null}
       {!isEdit &&
@@ -254,6 +250,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   matchHint: { ...typography.label, color: colors.primary, marginBottom: spacing.xs },
+  idHint: { ...typography.label, color: colors.muted, marginBottom: spacing.xs },
   noMatchHint: { ...typography.label, color: colors.muted, marginBottom: spacing.sm },
   matchRow: {
     flexDirection: 'row',
@@ -269,5 +266,4 @@ const styles = StyleSheet.create({
   matchMeta: { ...typography.label, color: colors.muted, marginTop: 2 },
   matchLink: { ...typography.label, color: colors.primary },
   matchCheck: { ...typography.label, color: colors.primary, fontWeight: '600' },
-  newGuardianLink: { ...typography.label, color: colors.primary, marginTop: spacing.xs },
 });

@@ -96,6 +96,13 @@ const ACTIVITIES = ['Break', 'Sports / PE', 'Study Time', 'Assembly', 'Clubs & S
                   setSubjectSheet(true);
                 },
               },
+              {
+                text: 'Change to activity',
+                onPress: () => {
+                  setPendingSlot({ day: slot.day, period: slot.period });
+                  setActivitySheet(true);
+                },
+              },
             ]),
         },
       ]);

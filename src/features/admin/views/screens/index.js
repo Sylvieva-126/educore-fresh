@@ -180,7 +180,7 @@ export const ADMIN_SCREENS = {
     name: 'PromotionApprove',
     title: 'Approve promotion and graduation',
     Component: PromotionApproveView,
-    tab: 'More',
+    tab: 'Academics',
   },
   AD28: { name: 'Notices', title: 'School announcements', Component: NoticesView, tab: 'More' },
   AD29: {

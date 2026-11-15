@@ -110,7 +110,40 @@ export class StudentFormPresenter {
   onValueChange(key, value) {
     const values = { ...this.state.values, [key]: value };
     const errors = { ...this.state.errors };
-    if (errors[key]) delete errors[key]; // typing again clears the old complaint
+    // LIVE validation for format-checkable fields: dateOfBirth, guardianPhone,
+    // guardianEmail. The error appears the moment a bad value is typed and
+    // clears the moment it is fixed — the office does not have to wait for
+    // submit to see "dateOfBirth must be a real date" or "guardianPhone is
+    // invalid". Required-field checks (firstName, lastName, guardianName,
+    // classLabel) stay on submit: an empty field does NOT flash red before
+    // the office types anything.
+    const liveFieldError = (field, val) => {
+      if (field === 'dateOfBirth') {
+        const text = cleanText(val);
+        if (!text) return null; // optional — empty is not an error live
+        return isValidDateOfBirth(text)
+          ? null
+          : 'Use a real date in YYYY-MM-DD format (not in the future).';
+      }
+      if (field === 'guardianPhone') {
+        const text = cleanText(val);
+        if (!text) return null; // required — flagged on submit, not live
+        return isValidPhone(text)
+          ? null
+          : 'Enter a valid number, e.g. +234 803 111 2233 or 08031112233.';
+      }
+      if (field === 'guardianEmail') {
+        const text = cleanText(val);
+        if (!text) return null; // optional — empty is not an error live
+        return isValidEmail(text)
+          ? null
+          : 'Enter a valid email, e.g. ngozi.okafor@example.com.';
+      }
+      return null;
+    };
+    const liveErr = liveFieldError(key, value);
+    if (liveErr) errors[key] = liveErr;
+    else delete errors[key]; // typing again clears the old complaint
     // Editing guardian phone/email (or clearing the chosen link) re-runs the
     // existing-guardian lookup so the office always sees the current matches.
     const patch = { values, errors };
@@ -206,6 +239,19 @@ export class StudentFormPresenter {
     if (cleanText(v.dateOfBirth) && !isValidDateOfBirth(v.dateOfBirth)) {
       errors.dateOfBirth =
         'Use a real date in YYYY-MM-DD format (not in the future).';
+    }
+    // Enrol mode only: when the live search found existing guardian matches,
+    // the office MUST pick one — phone/email are account IDs, so a second
+    // account with the same ID is never created. The "create a brand-new
+    // guardian" escape hatch was removed for the same reason.
+    if (
+      this.state.mode === 'enrol' &&
+      this.state.guardianSearchState === 'done' &&
+      this.state.guardianMatches.length > 0 &&
+      !this.state.linkGuardianId
+    ) {
+      errors.guardianPhone =
+        'An existing guardian matches this phone/email — pick one above to link this student to their account.';
     }
     return errors;
   }

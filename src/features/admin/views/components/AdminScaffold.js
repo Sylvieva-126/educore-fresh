@@ -46,14 +46,22 @@ export default function AdminScaffold({
         </Pressable>
       ) : null}
       <View style={styles.context}>
-        <Text style={styles.contextTop}>{bannerTop}</Text>
-        <Text style={styles.contextBottom}>{bannerBottom}</Text>
+        <Text style={styles.contextTop} numberOfLines={1} ellipsizeMode="tail">
+          {bannerTop}
+        </Text>
+        <Text style={styles.contextBottom} numberOfLines={1} ellipsizeMode="tail">
+          {bannerBottom}
+        </Text>
       </View>
 
       <View style={styles.header}>
-        {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-        {title ? <Text style={styles.title}>{title}</Text> : null}
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        {eyebrow ? <Text style={styles.eyebrow} numberOfLines={1} ellipsizeMode="tail">{eyebrow}</Text> : null}
+        {title ? <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">{title}</Text> : null}
+        {subtitle ? (
+          <Text style={styles.subtitle} numberOfLines={2} ellipsizeMode="tail">
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
 
       <ScrollView
